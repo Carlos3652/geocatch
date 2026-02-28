@@ -19,10 +19,12 @@ hs_indicator_font = pygame.font.SysFont("Arial", 24, bold=True)
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-GRASS = (58, 125, 68)
-ROAD = (107, 107, 107)
+GRASS = (200, 230, 202)
+ROAD = (210, 210, 210)
 LAKE = (59, 159, 212)
 TREE_TRUNK = (101, 67, 33)
+SCHOOL_GROUND = (185, 215, 188)
+HOUSE_COLOR = (230, 230, 228)
 ACCENT = (255, 107, 53)
 SCORE_GOLD = (255, 215, 0)
 URGENT_RED = (255, 59, 48)
@@ -140,9 +142,14 @@ for _rx, _ry in rocks:
     _rock_data.append({"pos": (_rx, _ry), "cracks": _cracks})
 
 trees = [
-    (80, 80), (210, 80), (400, 40), (560, 80), (700, 200),
-    (850, 120), (130, 440), (680, 500), (820, 580), (300, 600),
-    (940, 340), (40, 300), (750, 50), (920, 600), (160, 160),
+    # School exterior
+    (15, 48), (14, 230), (388, 38), (390, 262),
+    # Disc golf / open corridor (north of 165th)
+    (496, 76), (596, 128), (696, 58),
+    # East of Antioch Rd
+    (868, 72), (868, 228), (868, 448), (868, 612),
+    # South open spaces
+    (88, 438), (164, 556), (282, 626), (66, 266),
 ]
 
 # Pre-compute per-tree berry positions (fixed seed → stable layout)
@@ -157,53 +164,89 @@ for _tx, _ty in trees:
     _tree_data.append({"pos": (_tx, _ty), "berries": _berries})
 
 def draw_world():
-    """Draw the full game world: grass, roads, lake, trees.
-    Called from both the playing state and as the character-select background."""
+    """Draw the neighbourhood-themed game world."""
     screen.fill(GRASS)
-    pygame.draw.rect(screen, ROAD, (0, 320, WIDTH, 60))
-    pygame.draw.rect(screen, ROAD, (480, 0, 60, HEIGHT))
 
-    # Horizontal road center-line dashes along y=349
-    dash_len = 40
-    gap_len = 40
-    x = 0
-    while x < WIDTH:
-        if not (480 <= x < 540):  # skip intersection
-            pygame.draw.line(screen, SCORE_GOLD, (x, 349), (min(x + dash_len, WIDTH), 349), 3)
-        x += dash_len + gap_len
+    # --- ANTIOCH RD (right side, vertical) ---
+    pygame.draw.rect(screen, ROAD, (818, 0, 44, HEIGHT))
 
-    # Vertical road center-line dashes along x=509
-    y = 0
-    while y < HEIGHT:
-        if not (320 <= y < 380):  # skip intersection
-            pygame.draw.line(screen, SCORE_GOLD, (509, y), (509, min(y + dash_len, HEIGHT)), 3)
-        y += dash_len + gap_len
+    # --- W 165TH ST (main horizontal, slight diagonal) ---
+    pygame.draw.polygon(screen, ROAD, [
+        (0, 334), (818, 324),
+        (818, 368), (0, 372)
+    ])
 
-    pygame.draw.ellipse(screen, LAKE, (150, 150, 300, 180))
+    # --- SCHOOL CAMPUS (upper-left circular loop road) ---
+    pygame.draw.circle(screen, ROAD, (205, 155), 178)           # outer road ring
+    pygame.draw.circle(screen, SCHOOL_GROUND, (205, 155), 150)  # campus interior
+    pygame.draw.rect(screen, (218, 218, 216), (96, 92, 118, 52))    # Cedar Hills
+    pygame.draw.rect(screen, (218, 218, 216), (216, 105, 128, 56))  # Pleasant Ridge
+    pygame.draw.rect(screen, ROAD, (100, 192, 198, 36))              # parking lot
+    for _px in range(120, 294, 20):
+        pygame.draw.line(screen, SCHOOL_GROUND, (_px, 193), (_px, 227), 1)
 
+    # --- RESIDENTIAL STREETS (south of 165th) ---
+    pygame.draw.rect(screen, ROAD, (420, 368, 26, 222))   # Grandview St
+    pygame.draw.rect(screen, ROAD, (376, 418, 224, 24))   # 165th Terrace
+    pygame.draw.rect(screen, ROAD, (535, 368, 26, 252))   # Eby St
+    pygame.draw.rect(screen, ROAD, (720, 368, 26, 310))   # Slater St
+    # Cul-de-sac bulbs
+    pygame.draw.circle(screen, ROAD, (433, 590), 24)
+    pygame.draw.circle(screen, GRASS, (433, 590), 14)
+    pygame.draw.circle(screen, ROAD, (548, 620), 24)
+    pygame.draw.circle(screen, GRASS, (548, 620), 14)
+    pygame.draw.circle(screen, ROAD, (733, 678), 24)
+    pygame.draw.circle(screen, GRASS, (733, 678), 14)
+
+    # --- PONDS ---
+    pygame.draw.ellipse(screen, LAKE, (378, 374, 58, 28))    # main pond (south of 165th)
+    pygame.draw.ellipse(screen, LAKE, (358, 506, 52, 26))    # south pond
+
+    # --- HOUSES ---
+    for _hx in range(450, 808, 26):    # north side of 165th
+        pygame.draw.rect(screen, HOUSE_COLOR, (_hx, 300, 20, 17))
+    for _hx in range(378, 418, 26):    # west of Grandview, south of terrace
+        pygame.draw.rect(screen, HOUSE_COLOR, (_hx, 450, 20, 17))
+    for _hy in range(450, 582, 26):    # east side of Grandview
+        pygame.draw.rect(screen, HOUSE_COLOR, (450, _hy, 20, 17))
+    for _hy in range(450, 616, 26):    # west side of Eby
+        pygame.draw.rect(screen, HOUSE_COLOR, (508, _hy, 20, 17))
+    for _hy in range(450, 616, 26):    # east side of Eby
+        pygame.draw.rect(screen, HOUSE_COLOR, (564, _hy, 20, 17))
+    for _hy in range(395, 668, 26):    # west side of Slater
+        pygame.draw.rect(screen, HOUSE_COLOR, (694, _hy, 20, 17))
+    for _hy in range(395, 668, 26):    # east side of Slater
+        pygame.draw.rect(screen, HOUSE_COLOR, (749, _hy, 20, 17))
+
+    # --- DISC GOLF COURSE MARKER ---
+    pygame.draw.circle(screen, (76, 175, 80), (555, 252), 9)
+    pygame.draw.circle(screen, WHITE, (555, 252), 9, 2)
+    _dg = tiny_font.render("Disc Golf", True, (70, 140, 70))
+    screen.blit(_dg, (530, 265))
+
+    # --- TREES ---
     for td in _tree_data:
         tx, ty = td["pos"]
         cx, cy = tx + 15, ty + 20
         screen.blit(_shad_tree, (tx - 10, ty + 56))
         pygame.draw.rect(screen, TREE_TRUNK, (tx + 8, ty + 25, 14, 35))
-        # Lobe 1 — wide base (dark green)
         pygame.draw.circle(screen, (18, 76, 18), (cx, cy), 30)
         pygame.draw.circle(screen, (34, 130, 34), (cx, cy), 28)
-        # Lobe 2 — upper-left cluster (medium green)
         pygame.draw.circle(screen, (18, 76, 18), (cx - 9, cy - 11), 23)
         pygame.draw.circle(screen, (50, 155, 50), (cx - 9, cy - 11), 21)
-        # Lobe 3 — upper-right tip (bright green)
         pygame.draw.circle(screen, (18, 76, 18), (cx + 9, cy - 8), 19)
         pygame.draw.circle(screen, (70, 180, 55), (cx + 9, cy - 8), 17)
-        # Accent berries
         for bx, by in td["berries"]:
             pygame.draw.circle(screen, (210, 45, 45), (bx, by), 3)
 
 
 def in_lake(x, y):
-    """Return True if world position (x, y) falls inside the lake ellipse."""
-    cx, cy, rx, ry = 300, 240, 150, 90
-    return ((x - cx) ** 2 / rx ** 2 + (y - cy) ** 2 / ry ** 2) < 1.0
+    """Return True if (x, y) falls inside either pond."""
+    if (x - 407) ** 2 / 29 ** 2 + (y - 388) ** 2 / 14 ** 2 < 1.0:
+        return True
+    if (x - 384) ** 2 / 26 ** 2 + (y - 519) ** 2 / 13 ** 2 < 1.0:
+        return True
+    return False
 
 
 def spawn_creatures(n=8):
