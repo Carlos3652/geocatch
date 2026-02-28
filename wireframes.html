@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoCatch — UX/UI Wireframes</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #0f0f1a;
+    color: #fff;
+    min-height: 100vh;
+  }
+
+  /* ── Top Header ── */
+  .doc-header {
+    background: #1a1a2e;
+    border-bottom: 2px solid #FF6B35;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .doc-header h1 { font-size: 22px; color: #FF6B35; letter-spacing: 2px; }
+  .doc-header span { font-size: 13px; color: #aaa; }
+
+  /* ── Tab Nav ── */
+  .tab-nav {
+    display: flex;
+    gap: 4px;
+    padding: 20px 32px 0;
+    border-bottom: 2px solid #2a2a3e;
+  }
+  .tab-btn {
+    padding: 10px 24px;
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-bottom: none;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 6px 6px 0 0;
+    transition: all 0.2s;
+  }
+  .tab-btn:hover { background: #252540; color: #fff; }
+  .tab-btn.active { background: #252540; color: #FF6B35; border-color: #FF6B35; font-weight: bold; }
+
+  /* ── Variant Buttons ── */
+  .variant-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 32px;
+    background: #161625;
+    border-bottom: 1px solid #2a2a3e;
+  }
+  .variant-bar span { font-size: 13px; color: #888; margin-right: 6px; }
+  .variant-btn {
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: all 0.2s;
+  }
+  .variant-btn.va { background: #FF6B35; color: #fff; }
+  .variant-btn.vb { background: #00FF9F; color: #000; }
+  .variant-btn.vc { background: #fff; color: #212121; }
+  .variant-btn.active { border-color: #fff; transform: scale(1.08); }
+
+  /* ── Screen Wrapper ── */
+  .screens { padding: 32px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── Game Canvas ── */
+  .game-canvas {
+    width: 1000px;
+    height: 700px;
+    position: relative;
+    overflow: hidden;
+    margin: 0 auto;
+    border: 3px solid #FF6B35;
+    border-radius: 8px;
+    box-shadow: 0 0 40px rgba(255,107,53,0.3);
+  }
+
+  /* ── World Background ── */
+  .world-bg {
+    position: absolute;
+    inset: 0;
+    background: #3A7D44;
+  }
+  .world-bg .lake {
+    position: absolute;
+    width: 300px; height: 180px;
+    top: 60px; left: 60px;
+    background: #3B9FD4;
+    border-radius: 50%;
+    opacity: 0.85;
+  }
+  .world-bg .road-h {
+    position: absolute;
+    width: 100%; height: 60px;
+    top: 320px; left: 0;
+    background: #6B6B6B;
+  }
+  .world-bg .road-v {
+    position: absolute;
+    width: 60px; height: 100%;
+    top: 0; left: 470px;
+    background: #6B6B6B;
+  }
+  .world-bg .road-line-h {
+    position: absolute;
+    width: 100%; height: 3px;
+    top: 349px;
+    background: repeating-linear-gradient(to right, #FFD700 0 40px, transparent 40px 80px);
+  }
+  .world-bg .road-line-v {
+    position: absolute;
+    width: 3px; height: 100%;
+    left: 499px;
+    background: repeating-linear-gradient(to bottom, #FFD700 0 40px, transparent 40px 80px);
+  }
+  .world-bg .tree {
+    position: absolute;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: #2d6e35;
+    opacity: 0.8;
+  }
+
+  /* Variant B world */
+  .vb .world-bg { background: #1a2e1a; }
+  .vb .world-bg .lake { background: #0d4d6b; }
+  .vb .world-bg .road-h, .vb .world-bg .road-v { background: #111; }
+  .vb .world-bg .tree { background: #0d3d15; }
+
+  /* Variant C world */
+  .vc .world-bg { background: #5CB85C; }
+  .vc .world-bg .lake { background: #64B5F6; }
+  .vc .world-bg .road-h, .vc .world-bg .road-v { background: #9E9E9E; }
+
+  /* ── Dark overlay ── */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.62);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+  }
+  .overlay-heavy { background: rgba(0,0,0,0.78); }
+
+  /* ── Center Panel ── */
+  .panel {
+    background: rgba(26,26,46,0.92);
+    border: 1px solid rgba(255,107,53,0.4);
+    border-radius: 14px;
+    padding: 28px 36px;
+    width: 760px;
+  }
+  .vb .panel { background: rgba(0,0,0,0.92); border-color: #00FF9F; }
+  .vc .panel { background: rgba(255,255,255,0.96); border-color: #1565C0; color: #212121; }
+
+  /* ── Title ── */
+  .game-title {
+    font-size: 52px;
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: 6px;
+    text-shadow: 3px 3px 0 #FF6B35;
+    text-align: center;
+  }
+  .game-subtitle {
+    font-size: 16px;
+    color: #aaa;
+    text-align: center;
+    letter-spacing: 3px;
+    margin-top: 4px;
+  }
+  .section-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 18px 0 14px;
+    color: #888;
+    font-size: 13px;
+    letter-spacing: 2px;
+  }
+  .section-divider::before, .section-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #333;
+  }
+  .vb .section-divider::before, .vb .section-divider::after { background: #00FF9F44; }
+  .vc .section-divider { color: #555; }
+  .vc .section-divider::before, .vc .section-divider::after { background: #ccc; }
+
+  /* ── Trainer Cards ── */
+  .trainer-row {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+  }
+  .trainer-card {
+    width: 140px;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 14px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    opacity: 0.7;
+  }
+  .trainer-card:hover { opacity: 0.9; transform: translateY(-2px); }
+  .trainer-card.selected {
+    border-color: #FF6B35;
+    box-shadow: 0 0 16px rgba(255,107,53,0.5);
+    opacity: 1;
+    background: rgba(255,107,53,0.12);
+  }
+  .trainer-avatar {
+    width: 70px; height: 90px;
+    border-radius: 6px;
+    margin: 0 auto 10px;
+    display: flex; align-items: flex-end; justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+  .trainer-avatar .head {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    position: absolute;
+    top: 10px;
+  }
+  .trainer-avatar .body {
+    width: 50px; height: 45px;
+    border-radius: 6px 6px 0 0;
+    position: absolute;
+    bottom: 0;
+  }
+  .t1 .head { background: #FDBCB4; } .t1 .body { background: #E53935; }
+  .t2 .head { background: #FDBCB4; } .t2 .body { background: #1565C0; }
+  .t3 .head { background: #C68642; } .t3 .body { background: #2E7D32; }
+  .t4 .head { background: #C68642; } .t4 .body { background: #6A1B9A; }
+  .trainer-label { font-size: 13px; color: #ccc; }
+  .trainer-num {
+    font-size: 18px;
+    font-weight: bold;
+    color: #FF6B35;
+    margin-top: 4px;
+  }
+
+  .vb .trainer-card { border-color: rgba(0,255,159,0.2); background: rgba(0,255,159,0.04); }
+  .vb .trainer-card.selected { border-color: #00FF9F; box-shadow: 0 0 16px rgba(0,255,159,0.4); background: rgba(0,255,159,0.08); }
+  .vb .trainer-num { color: #00FF9F; }
+  .vc .trainer-card { background: #f5f5f5; border-color: #ccc; color: #212121; opacity: 0.85; }
+  .vc .trainer-card.selected { border-color: #1565C0; border-width: 3px; box-shadow: 0 0 12px rgba(21,101,192,0.3); opacity: 1; background: #E3F2FD; }
+  .vc .trainer-num { color: #1565C0; }
+  .vc .trainer-label { color: #444; }
+  .selected-badge {
+    display: none;
+    font-size: 10px;
+    background: #FF6B35;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+  .trainer-card.selected .selected-badge { display: inline-block; }
+  .vb .selected-badge { background: #00FF9F; color: #000; }
+  .vc .selected-badge { background: #1565C0; }
+
+  /* ── Bottom two-panel row ── */
+  .bottom-panels {
+    display: flex;
+    gap: 16px;
+    width: 760px;
+  }
+  .mini-panel {
+    flex: 1;
+    background: rgba(26,26,46,0.88);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 16px 18px;
+    font-size: 13px;
+  }
+  .mini-panel h3 {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: #FF6B35;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+  .mini-panel p { color: #ccc; line-height: 1.8; }
+  .creature-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0;
+    font-size: 12px;
+    color: #ccc;
+  }
+  .creature-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .score-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 13px;
+    color: #ccc;
+    border-bottom: 1px solid #2a2a3e;
+  }
+  .score-row:last-child { border-bottom: none; }
+  .score-row .rank { color: #888; margin-right: 8px; }
+  .score-row .pts { color: #FFD700; font-weight: bold; }
+
+  .vb .mini-panel { background: rgba(0,0,0,0.88); border-color: rgba(0,255,159,0.15); }
+  .vb .mini-panel h3 { color: #00FF9F; }
+  .vb .score-row { border-color: #1a1a1a; }
+  .vc .mini-panel { background: rgba(255,255,255,0.95); border-color: #ccc; color: #212121; }
+  .vc .mini-panel h3 { color: #1565C0; }
+  .vc .mini-panel p, .vc .creature-row, .vc .score-row { color: #333; }
+  .vc .score-row { border-color: #ddd; }
+  .vc .score-row .pts { color: #E65100; }
+
+  /* ── CTA Button ── */
+  .cta-btn {
+    background: #FF6B35;
+    color: #fff;
+    border: none;
+    padding: 13px 40px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(255,107,53,0.4);
+  }
+  .cta-btn:hover { background: #e85c26; transform: translateY(-1px); }
+  .vb .cta-btn { background: #00FF9F; color: #000; box-shadow: 0 4px 16px rgba(0,255,159,0.3); }
+  .vc .cta-btn { background: #1565C0; box-shadow: 0 4px 16px rgba(21,101,192,0.3); }
+
+  /* ── HUD Screen ── */
+  .hud-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .hud-pill {
+    position: absolute;
+    background: rgba(0,0,0,0.75);
+    border-radius: 30px;
+    padding: 8px 20px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .hud-score { top: 18px; left: 20px; color: #FFD700; }
+  .hud-timer { top: 18px; right: 20px; }
+  .hud-timer.urgent {
+    color: #FF3B30;
+    font-size: 24px;
+    animation: pulse 0.6s infinite alternate;
+    border-color: #FF3B30;
+    box-shadow: 0 0 12px rgba(255,59,48,0.5);
+  }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.08); } }
+
+  .vb .hud-pill { background: rgba(0,0,0,0.88); border-color: #00FF9F44; }
+  .vb .hud-score { color: #00FF9F; }
+  .vb .hud-timer { color: #00BFFF; }
+  .vb .hud-timer.urgent { color: #FF0040; border-color: #FF0040; }
+  .vc .hud-pill { background: rgba(255,255,255,0.92); color: #212121; border-color: #ccc; }
+  .vc .hud-score { color: #E65100; }
+  .vc .hud-timer { color: #212121; }
+  .vc .hud-timer.urgent { color: #C62828; border-color: #C62828; }
+
+  /* ── Sprite elements ── */
+  .player-sprite {
+    position: absolute;
+    width: 28px; height: 36px;
+    border-radius: 4px;
+    top: 340px; left: 480px;
+    background: #E53935;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+  .creature {
+    position: absolute;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 0 12px rgba(255,255,255,0.3);
+  }
+  .proximity-label {
+    position: absolute;
+    background: rgba(0,0,0,0.82);
+    color: #fff;
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,215,0,0.5);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .proximity-label .catch-hint {
+    color: #FFD700;
+    font-weight: bold;
+    margin-left: 4px;
+  }
+  .bomb-sprite {
+    position: absolute;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: #c62828;
+    border: 2px solid #ff5252;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .rock-sprite {
+    position: absolute;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: #757575;
+    border: 2px solid #bdbdbd;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .float-text {
+    position: absolute;
+    font-size: 22px;
+    font-weight: bold;
+    color: #FFD700;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+    animation: floatUp 1.5s ease-out forwards;
+    pointer-events: none;
+  }
+  .float-text.negative { color: #FF5252; }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-50px); }
+  }
+  .inventory-strip {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 38px;
+    background: rgba(0,0,0,0.8);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px;
+    font-size: 12px;
+    color: #aaa;
+  }
+  .inv-creature {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.4);
+  }
+
+  .vb .inventory-strip { background: rgba(0,0,0,0.9); border-color: #00FF9F33; }
+  .vc .inventory-strip { background: rgba(255,255,255,0.92); border-color: #ddd; color: #555; }
+
+  /* urgency callout */
+  .urgency-callout {
+    position: absolute;
+    top: 70px; right: 20px;
+    background: rgba(0,0,0,0.82);
+    border: 2px solid #FF3B30;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 11px;
+    color: #FF3B30;
+    letter-spacing: 1px;
+  }
+  .urgency-callout strong { display: block; font-size: 18px; }
+
+  /* ── Game Over Screen ── */
+  .gameover-panel {
+    background: rgba(26,26,46,0.94);
+    border: 1px solid rgba(255,107,53,0.4);
+    border-radius: 14px;
+    padding: 26px 32px;
+    width: 520px;
+    text-align: center;
+  }
+  .vb .gameover-panel { background: rgba(0,0,0,0.94); border-color: #00FF9F; }
+  .vc .gameover-panel { background: rgba(255,255,255,0.96); border-color: #1565C0; color: #212121; }
+
+  .new-score-banner {
+    color: #FFD700;
+    font-size: 22px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    text-shadow: 0 0 10px rgba(255,215,0,0.5);
+  }
+  .vb .new-score-banner { color: #00FF9F; text-shadow: 0 0 10px rgba(0,255,159,0.4); }
+  .vc .new-score-banner { color: #E65100; text-shadow: none; }
+
+  .gameover-title {
+    font-size: 38px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    color: #fff;
+  }
+  .vc .gameover-title { color: #212121; }
+  .vb .gameover-title { color: #fff; }
+
+  .final-score { font-size: 28px; color: #FFD700; font-weight: bold; margin: 6px 0; }
+  .vb .final-score { color: #00FF9F; }
+  .vc .final-score { color: #E65100; }
+
+  .caught-count { font-size: 14px; color: #aaa; margin-bottom: 10px; }
+  .vc .caught-count { color: #555; }
+
+  .caught-creatures {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 8px 0 16px;
+  }
+  .caught-circle {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.4);
+  }
+
+  .divider-line {
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+    margin: 14px 0;
+  }
+  .vc .divider-line { background: #ddd; }
+
+  .name-entry-label { font-size: 13px; color: #aaa; margin-bottom: 6px; }
+  .vc .name-entry-label { color: #555; }
+  .name-field {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-size: 22px;
+    font-family: monospace;
+    color: #fff;
+    letter-spacing: 8px;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .vb .name-field { border-color: #00FF9F55; background: rgba(0,255,159,0.05); }
+  .vc .name-field { background: #f5f5f5; border-color: #bbb; color: #212121; }
+
+  .go-btn-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+  .go-btn {
+    padding: 10px 20px;
+    border-radius: 6px;
+    border: none;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+  .go-btn.primary { background: #FF6B35; color: #fff; }
+  .go-btn.secondary { background: rgba(255,255,255,0.1); color: #ccc; border: 1px solid rgba(255,255,255,0.2); }
+  .go-btn:hover { transform: translateY(-1px); }
+  .vb .go-btn.primary { background: #00FF9F; color: #000; }
+  .vb .go-btn.secondary { background: rgba(0,255,159,0.08); color: #00FF9F; border-color: #00FF9F33; }
+  .vc .go-btn.primary { background: #1565C0; color: #fff; }
+  .vc .go-btn.secondary { background: #f5f5f5; color: #555; border-color: #ccc; }
+
+  .leaderboard {
+    background: rgba(26,26,46,0.88);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 14px 18px;
+    width: 520px;
+  }
+  .vb .leaderboard { background: rgba(0,0,0,0.88); border-color: #00FF9F22; }
+  .vc .leaderboard { background: rgba(255,255,255,0.94); border-color: #ddd; color: #212121; }
+
+  .lb-title { font-size: 11px; letter-spacing: 3px; color: #FF6B35; margin-bottom: 10px; text-transform: uppercase; }
+  .vb .lb-title { color: #00FF9F; }
+  .vc .lb-title { color: #1565C0; }
+
+  .lb-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 14px;
+  }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-row.highlighted { background: rgba(255,107,53,0.15); border-radius: 4px; padding: 5px 8px; margin: 0 -8px; }
+  .vb .lb-row.highlighted { background: rgba(0,255,159,0.1); }
+  .vc .lb-row.highlighted { background: rgba(21,101,192,0.1); }
+  .vc .lb-row { border-color: #eee; color: #333; }
+  .lb-pts { color: #FFD700; font-weight: bold; }
+  .vb .lb-pts { color: #00FF9F; }
+  .vc .lb-pts { color: #E65100; }
+  .lb-rank { color: #888; margin-right: 8px; font-size: 12px; }
+
+  /* ── Audit Section ── */
+  .audit-section {
+    max-width: 1000px;
+    margin: 32px auto 0;
+    background: #161625;
+    border: 1px solid #2a2a3e;
+    border-radius: 10px;
+    padding: 28px 32px;
+  }
+  .audit-section h2 {
+    font-size: 18px;
+    color: #FF6B35;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #2a2a3e;
+  }
+  .audit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .audit-card {
+    background: #1a1a2e;
+    border-radius: 8px;
+    padding: 16px 20px;
+    border-left: 3px solid #FF6B35;
+  }
+  .audit-card.warn { border-left-color: #FFD700; }
+  .audit-card.fail { border-left-color: #FF3B30; }
+  .audit-card.pass { border-left-color: #4CAF50; }
+  .audit-card h3 { font-size: 14px; color: #fff; margin-bottom: 8px; }
+  .audit-card ul { list-style: none; }
+  .audit-card ul li {
+    font-size: 12px;
+    color: #aaa;
+    padding: 3px 0;
+    padding-left: 14px;
+    position: relative;
+  }
+  .audit-card ul li::before { content: '→'; position: absolute; left: 0; color: #666; }
+
+  .priority-list { margin-top: 20px; }
+  .priority-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid #2a2a3e;
+  }
+  .priority-item:last-child { border-bottom: none; }
+  .priority-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: #FF6B35;
+    color: #fff;
+    font-weight: bold;
+    font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .priority-content h4 { font-size: 14px; color: #fff; margin-bottom: 2px; }
+  .priority-content p { font-size: 12px; color: #888; }
+  .priority-tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(255,107,53,0.2);
+    color: #FF6B35;
+    margin-left: auto;
+    align-self: flex-start;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .variant-swatches {
+    display: flex;
+    gap: 16px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+  .swatch-group {
+    flex: 1;
+    min-width: 200px;
+    background: #1a1a2e;
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .swatch-group h3 { font-size: 13px; color: #fff; margin-bottom: 10px; }
+  .swatch-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .swatch {
+    width: 36px; height: 36px;
+    border-radius: 4px;
+    position: relative;
+    cursor: default;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .swatch[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #000;
+    color: #fff;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    white-space: nowrap;
+    z-index: 10;
+  }
+
+  /* vb title colors */
+  .vb .game-title { text-shadow: 3px 3px 0 #00FF9F; }
+  .vb .game-subtitle { color: #00FF9F88; }
+  .vc .game-title { color: #1565C0; text-shadow: 2px 2px 0 #bbdefb; }
+  .vc .game-subtitle { color: #555; }
+
+  /* Trees decoration */
+  .tree-pos { position: absolute; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <h1>GEOCATCH — UX/UI WIREFRAMES</h1>
+  <span>Reviewed 2026-02-28 &nbsp;|&nbsp; Family Audience &nbsp;|&nbsp; Pygame Desktop 1000×700</span>
+</div>
+
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('char-select')">1 — Character Select</button>
+  <button class="tab-btn" onclick="switchTab('hud')">2 — Gameplay HUD</button>
+  <button class="tab-btn" onclick="switchTab('gameover')">3 — Game Over</button>
+  <button class="tab-btn" onclick="switchTab('audit')">Audit Report</button>
+</div>
+
+<div class="variant-bar">
+  <span>Design Variant:</span>
+  <button class="variant-btn va active" onclick="switchVariant('va')">A — Storybook</button>
+  <button class="variant-btn vb" onclick="switchVariant('vb')">B — Retro Arcade</button>
+  <button class="variant-btn vc" onclick="switchVariant('vc')">C — Accessibility</button>
+</div>
+
+<div class="screens">
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SCREEN 1: Character Select                    -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="screen active" id="screen-char-select">
+    <div class="game-canvas va" id="canvas-char">
+
+      <!-- World Background -->
+      <div class="world-bg">
+        <div class="lake"></div>
+        <div class="road-h"></div>
+        <div class="road-v"></div>
+        <div class="road-line-h"></div>
+        <div class="road-line-v"></div>
+        <div class="tree" style="top:40px;left:400px"></div>
+        <div class="tree" style="top:80px;left:560px"></div>
+        <div class="tree" style="top:200px;left:700px"></div>
+        <div class="tree" style="top:440px;left:130px"></div>
+        <div class="tree" style="top:500px;left:680px"></div>
+        <div class="tree" style="top:580px;left:820px"></div>
+        <div class="tree" style="top:120px;left:850px"></div>
+        <div class="tree" style="top:600px;left:300px"></div>
+      </div>
+
+      <!-- Dark Overlay -->
+      <div class="overlay">
+        <!-- Main Panel -->
+        <div class="panel">
+          <div class="game-title">GEOCATCH</div>
+          <div class="game-subtitle">OVERLAND PARK EDITION</div>
+          <div class="section-divider">CHOOSE YOUR TRAINER</div>
+          <div class="trainer-row">
+            <div class="trainer-card selected" id="t1" onclick="selectTrainer(1)">
+              <div class="trainer-avatar t1"><div class="head"></div><div class="body"></div></div>
+              <div class="trainer-label">Trainer 1</div>
+              <div class="trainer-num">[1]</div>
+              <div class="selected-badge">SELECTED</div>
+            </div>
+            <div class="trainer-card" id="t2" onclick="selectTrainer(2)">
+              <div class="trainer-avatar t2"><div class="head"></div><div class="body"></div></div>
+              <div class="trainer-label">Trainer 2</div>
+              <div class="trainer-num">[2]</div>
+              <div class="selected-badge">SELECTED</div>
+            </div>
+            <div class="trainer-card" id="t3" onclick="selectTrainer(3)">
+              <div class="trainer-avatar t3"><div class="head"></div><div class="body"></div></div>
+              <div class="trainer-label">Trainer 3</div>
+              <div class="trainer-num">[3]</div>
+              <div class="selected-badge">SELECTED</div>
+            </div>
+            <div class="trainer-card" id="t4" onclick="selectTrainer(4)">
+              <div class="trainer-avatar t4"><div class="head"></div><div class="body"></div></div>
+              <div class="trainer-label">Trainer 4</div>
+              <div class="trainer-num">[4]</div>
+              <div class="selected-badge">SELECTED</div>
+            </div>
+          </div>
+          <div style="text-align:center;margin-top:18px">
+            <button class="cta-btn">PRESS ENTER TO START</button>
+          </div>
+        </div>
+
+        <!-- Bottom two panels -->
+        <div class="bottom-panels">
+          <div class="mini-panel">
+            <h3>How to Play</h3>
+            <p>Move: <strong>WASD</strong> or <strong>Arrow keys</strong></p>
+            <p>Catch: <strong>SPACE</strong> near a creature</p>
+            <p>Avoid: Bombs (−100 pts) &amp; Rocks</p>
+            <p style="margin-top:8px;color:#888;font-size:11px">60 seconds — catch as many as you can!</p>
+            <div style="margin-top:10px">
+              <div class="creature-row"><div class="creature-dot" style="background:#FF6B00"></div> Fire Drake — 50 pts</div>
+              <div class="creature-row"><div class="creature-dot" style="background:#3B9FD4"></div> Water Sprite — 40 pts</div>
+              <div class="creature-row"><div class="creature-dot" style="background:#4CAF50"></div> Forest Guardian — 60 pts</div>
+              <div class="creature-row"><div class="creature-dot" style="background:#FFD700"></div> Electric Spark — 45 pts</div>
+              <div class="creature-row"><div class="creature-dot" style="background:#9C27B0"></div> Shadow Phantom — 70 pts</div>
+            </div>
+          </div>
+          <div class="mini-panel">
+            <h3>Top Scores</h3>
+            <div class="score-row"><span><span class="rank">1.</span> DAD</span><span class="pts">2270</span></div>
+            <div class="score-row"><span><span class="rank">2.</span> LEO</span><span class="pts">475</span></div>
+            <div class="score-row"><span><span class="rank">3.</span> LEO</span><span class="pts">355</span></div>
+            <div class="score-row"><span><span class="rank">4.</span> LEO</span><span class="pts">240</span></div>
+            <div class="score-row"><span><span class="rank">5.</span> ---</span><span class="pts" style="color:#555">---</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SCREEN 2: Gameplay HUD                        -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-hud">
+    <div class="game-canvas va" id="canvas-hud">
+      <div class="world-bg">
+        <div class="lake"></div>
+        <div class="road-h"></div>
+        <div class="road-v"></div>
+        <div class="road-line-h"></div>
+        <div class="road-line-v"></div>
+        <div class="tree" style="top:40px;left:400px"></div>
+        <div class="tree" style="top:80px;left:560px"></div>
+        <div class="tree" style="top:200px;left:700px"></div>
+        <div class="tree" style="top:440px;left:130px"></div>
+        <div class="tree" style="top:500px;left:680px"></div>
+        <div class="tree" style="top:580px;left:820px"></div>
+        <div class="tree" style="top:120px;left:850px"></div>
+        <div class="tree" style="top:600px;left:300px"></div>
+      </div>
+
+      <!-- HUD Layer -->
+      <div class="hud-layer">
+        <div class="hud-pill hud-score">SCORE: 1150</div>
+        <div class="hud-pill hud-timer" id="hud-timer-el">TIME: 23s</div>
+        <div class="urgency-callout" id="urgency-box" style="display:none">
+          URGENCY STATE (&le;10s)<br>
+          <strong class="hud-timer urgent" style="position:static;padding:0;background:none;border:none">8s</strong>
+        </div>
+      </div>
+
+      <!-- Player -->
+      <div class="player-sprite"></div>
+
+      <!-- Creatures -->
+      <div class="creature" style="top:240px;left:600px;background:#FF6B00" title="Fire Drake">🔥</div>
+      <div class="creature" style="top:160px;left:250px;background:#3B9FD4" title="Water Sprite">💧</div>
+      <div class="creature" style="top:530px;left:750px;background:#4CAF50" title="Forest Guardian">🌿</div>
+
+      <!-- In-range creature with proximity label -->
+      <div class="creature" style="top:295px;left:540px;background:#9C27B0;box-shadow:0 0 20px rgba(156,39,176,0.6)" title="Shadow Phantom">👻</div>
+      <div class="proximity-label" style="top:270px;left:450px">
+        Shadow Phantom — 70 pts <span class="catch-hint">| SPACE to catch</span>
+      </div>
+
+      <!-- Bomb & Rock -->
+      <div class="bomb-sprite" style="top:420px;left:310px">☠</div>
+      <div class="rock-sprite" style="top:200px;left:780px">🪨</div>
+
+      <!-- Floating score text (visual) -->
+      <div class="float-text" style="top:260px;left:620px;animation-delay:0s">+70</div>
+      <div class="float-text negative" style="top:400px;left:290px;animation-delay:0.8s">−100</div>
+
+      <!-- Inventory strip -->
+      <div class="inventory-strip" id="inv-strip">
+        <span>CAUGHT:</span>
+        <div class="inv-creature" style="background:#FF6B00"></div>
+        <div class="inv-creature" style="background:#3B9FD4"></div>
+        <div class="inv-creature" style="background:#9C27B0"></div>
+        <div class="inv-creature" style="background:#FFD700"></div>
+        <div class="inv-creature" style="background:#4CAF50"></div>
+        <div class="inv-creature" style="background:#FF6B00"></div>
+        <div class="inv-creature" style="background:#9C27B0"></div>
+      </div>
+    </div>
+
+    <!-- Toggle urgency demo -->
+    <div style="text-align:center;margin-top:12px">
+      <button onclick="toggleUrgency()" style="background:#2a2a3e;color:#aaa;border:1px solid #444;padding:6px 18px;border-radius:6px;cursor:pointer;font-size:13px">
+        Toggle Timer Urgency State (&le;10s)
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SCREEN 3: Game Over                           -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-gameover">
+    <div class="game-canvas va" id="canvas-gameover">
+      <div class="world-bg">
+        <div class="lake"></div>
+        <div class="road-h"></div>
+        <div class="road-v"></div>
+        <div class="road-line-h"></div>
+        <div class="road-line-v"></div>
+        <div class="tree" style="top:40px;left:400px"></div>
+        <div class="tree" style="top:80px;left:560px"></div>
+        <div class="tree" style="top:200px;left:700px"></div>
+        <div class="tree" style="top:580px;left:820px"></div>
+      </div>
+
+      <div class="overlay overlay-heavy">
+        <div class="gameover-panel">
+          <div class="new-score-banner">★ NEW HIGH SCORE! ★</div>
+          <div class="gameover-title">TIME'S UP!</div>
+          <div class="final-score">Final Score: 1150</div>
+          <div class="caught-count">Creatures Caught: 7</div>
+          <div class="caught-creatures">
+            <div class="caught-circle" style="background:#FF6B00"></div>
+            <div class="caught-circle" style="background:#3B9FD4"></div>
+            <div class="caught-circle" style="background:#9C27B0"></div>
+            <div class="caught-circle" style="background:#FFD700"></div>
+            <div class="caught-circle" style="background:#4CAF50"></div>
+            <div class="caught-circle" style="background:#FF6B00"></div>
+            <div class="caught-circle" style="background:#9C27B0"></div>
+          </div>
+          <div class="divider-line"></div>
+          <div class="name-entry-label">Enter your name (up to 5 letters):</div>
+          <div class="name-field">RAFA_</div>
+          <div class="go-btn-row">
+            <button class="go-btn primary">ENTER — Save Score</button>
+            <button class="go-btn secondary">R — Skip &amp; Replay</button>
+          </div>
+        </div>
+
+        <div class="leaderboard">
+          <div class="lb-title">Top Scores</div>
+          <div class="lb-row highlighted">
+            <span><span class="lb-rank">1.</span> RAFA</span>
+            <span class="lb-pts">1150 ✦ NEW</span>
+          </div>
+          <div class="lb-row">
+            <span><span class="lb-rank">2.</span> DAD</span>
+            <span class="lb-pts">2270</span>
+          </div>
+          <div class="lb-row">
+            <span><span class="lb-rank">3.</span> LEO</span>
+            <span class="lb-pts">475</span>
+          </div>
+          <div class="lb-row">
+            <span><span class="lb-rank">4.</span> LEO</span>
+            <span class="lb-pts">355</span>
+          </div>
+          <div class="lb-row">
+            <span><span class="lb-rank">5.</span> LEO</span>
+            <span class="lb-pts">240</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SCREEN 4: Audit Report                        -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-audit">
+    <div class="audit-section">
+      <h2>GEOCATCH — UX/UI AUDIT REPORT</h2>
+
+      <div class="audit-grid">
+        <div class="audit-card fail">
+          <h3>Character Select — Issues</h3>
+          <ul>
+            <li>No game title or branding shown on screen</li>
+            <li>No visible selection state on default trainer</li>
+            <li>Trainers float on plain black — no world context</li>
+            <li>Keyboard-only selection, no mouse click support</li>
+            <li>Instructions are one cramped unreadable string</li>
+            <li>How to Play and High Scores not visually separated</li>
+          </ul>
+        </div>
+        <div class="audit-card fail">
+          <h3>HUD During Play — Issues</h3>
+          <ul>
+            <li>Score/timer have no backing panel → unreadable on grass</li>
+            <li>Timer never signals urgency when time runs low</li>
+            <li>No feedback when catching a creature (silent disappear)</li>
+            <li>Bomb hit gives no visual feedback (silent −100 pts)</li>
+            <li>No proximity label showing creature name/points</li>
+            <li>Inventory is built in code but never shown on screen</li>
+          </ul>
+        </div>
+        <div class="audit-card warn">
+          <h3>Game Over Screen — Issues</h3>
+          <ul>
+            <li>No "NEW HIGH SCORE" indicator</li>
+            <li>Name entry says "saved!" before Enter is pressed (bug)</li>
+            <li>No R-to-skip path shown before name entry completes</li>
+            <li>No caught creature recap shown</li>
+            <li>Plain black background — missed cinematic opportunity</li>
+          </ul>
+        </div>
+        <div class="audit-card fail">
+          <h3>Accessibility — Failures</h3>
+          <ul>
+            <li>White text on #228B22 grass fails contrast near trees</li>
+            <li>Bomb penalty has no shape/icon redundancy (CVD risk)</li>
+            <li>Timer urgency is color-only (red/green colorblind issue)</li>
+            <li>No mouse interaction anywhere in the game</li>
+            <li>Segoe UI Emoji font is Windows-only (cross-platform bug)</li>
+          </ul>
+        </div>
+        <div class="audit-card pass">
+          <h3>Streamlit Version — Assessment</h3>
+          <ul>
+            <li>Debug "app working" banner visible to end users (remove)</li>
+            <li>No real game loop — Streamlit rerenders on every click</li>
+            <li>Map was removed, core fantasy of game is absent</li>
+            <li>No character select, no encounter screen, no timer</li>
+            <li>Architecture is wrong for real-time gameplay</li>
+            <li>Recommend: full rethink or focus solely on Pygame version</li>
+          </ul>
+        </div>
+        <div class="audit-card warn">
+          <h3>World Design — Issues</h3>
+          <ul>
+            <li>Trees randomized each session — no mental map possible</li>
+            <li>Creatures can spawn inside the lake (immersion break)</li>
+            <li>Bombs/rocks use emoji — may not render cross-platform</li>
+            <li>Road color (brown) reads as dirt, not Kansas asphalt</li>
+            <li>No visual indicator of catch radius (55px invisible circle)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="priority-list">
+        <h2 style="margin:24px 0 14px;font-size:16px;color:#FF6B35;letter-spacing:2px">PRIORITY FIX LIST</h2>
+        <div class="priority-item">
+          <div class="priority-num">1</div>
+          <div class="priority-content">
+            <h4>HUD Backing Panels</h4>
+            <p>Add semi-transparent dark rect behind score and timer text — resolves legibility across all game world tiles.</p>
+          </div>
+          <div class="priority-tag">30 min</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num">2</div>
+          <div class="priority-content">
+            <h4>Timer Urgency State</h4>
+            <p>Change timer to red + increase font size when ≤10 seconds remain. Highest tension improvement for least effort.</p>
+          </div>
+          <div class="priority-tag">15 min</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num">3</div>
+          <div class="priority-content">
+            <h4>Catch Feedback — Floating Score Text</h4>
+            <p>Spawn "+70" gold floating text at catch point, animate upward and fade. Delivers the missing dopamine hit.</p>
+          </div>
+          <div class="priority-tag">1–2 hrs</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num">4</div>
+          <div class="priority-content">
+            <h4>Bomb Hit Feedback</h4>
+            <p>Add red screen flash (3 frames, 12% opacity) and "−100" floating text on bomb collision. Fixes invisible penalty confusion.</p>
+          </div>
+          <div class="priority-tag">1 hr</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num">5</div>
+          <div class="priority-content">
+            <h4>Character Select Redesign</h4>
+            <p>Use game world as background with dark overlay, add trainer cards with borders, add mouse click support, add game title.</p>
+          </div>
+          <div class="priority-tag">2–3 hrs</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num">6</div>
+          <div class="priority-content">
+            <h4>Proximity Creature Label</h4>
+            <p>Show creature name + "SPACE to catch" when player is within catch radius. Teaches new players the core mechanic.</p>
+          </div>
+          <div class="priority-tag">1 hr</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num">7</div>
+          <div class="priority-content">
+            <h4>New High Score Indicator on Game Over</h4>
+            <p>Detect if score ranks in top 5 and display "★ NEW HIGH SCORE! ★" banner. Highest emotional payoff for family competition.</p>
+          </div>
+          <div class="priority-tag">30 min</div>
+        </div>
+        <div class="priority-item">
+          <div class="priority-num">8</div>
+          <div class="priority-content">
+            <h4>Mouse Click on Trainer Select</h4>
+            <p>Add pygame.MOUSEBUTTONDOWN handling for trainer card click regions. Removes keyboard-only friction for younger players.</p>
+          </div>
+          <div class="priority-tag">30 min</div>
+        </div>
+      </div>
+
+      <h2 style="margin:28px 0 14px;font-size:16px;color:#FF6B35;letter-spacing:2px">DESIGN VARIANTS — COLOR PALETTES</h2>
+      <div class="variant-swatches">
+        <div class="swatch-group">
+          <h3>Variant A — Storybook Adventure (Recommended)</h3>
+          <div class="swatch-row">
+            <div class="swatch" style="background:#FF6B35" title="Primary Accent"></div>
+            <div class="swatch" style="background:#FFD700" title="Score Gold"></div>
+            <div class="swatch" style="background:#3A7D44" title="Grass"></div>
+            <div class="swatch" style="background:#3B9FD4" title="Lake"></div>
+            <div class="swatch" style="background:#6B6B6B" title="Road"></div>
+            <div class="swatch" style="background:#1A1A2E" title="Panel BG"></div>
+            <div class="swatch" style="background:#FF3B30" title="Urgent Timer"></div>
+            <div class="swatch" style="background:#FFFFFF" title="Text"></div>
+          </div>
+        </div>
+        <div class="swatch-group">
+          <h3>Variant B — Retro Arcade Dark</h3>
+          <div class="swatch-row">
+            <div class="swatch" style="background:#00FF9F" title="Primary Accent"></div>
+            <div class="swatch" style="background:#00BFFF" title="Timer Blue"></div>
+            <div class="swatch" style="background:#FFFF00" title="Score Yellow"></div>
+            <div class="swatch" style="background:#1a2e1a" title="Dark Grass"></div>
+            <div class="swatch" style="background:#111" title="Road"></div>
+            <div class="swatch" style="background:#000000" title="Panel BG"></div>
+            <div class="swatch" style="background:#FF0040" title="Urgent/Bomb"></div>
+            <div class="swatch" style="background:#FFFFFF" title="Text"></div>
+          </div>
+        </div>
+        <div class="swatch-group">
+          <h3>Variant C — Bright Day / Accessibility</h3>
+          <div class="swatch-row">
+            <div class="swatch" style="background:#1565C0" title="Primary Accent"></div>
+            <div class="swatch" style="background:#E65100" title="Score Orange"></div>
+            <div class="swatch" style="background:#5CB85C" title="Light Grass"></div>
+            <div class="swatch" style="background:#64B5F6" title="Sky Blue Lake"></div>
+            <div class="swatch" style="background:#9E9E9E" title="Asphalt Road"></div>
+            <div class="swatch" style="background:#FFFFFF" title="Panel BG"></div>
+            <div class="swatch" style="background:#C62828" title="Urgent Timer"></div>
+            <div class="swatch" style="background:#212121" title="Text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /screens -->
+
+<script>
+  let currentVariant = 'va';
+  let urgencyOn = false;
+
+  const canvases = ['canvas-char', 'canvas-hud', 'canvas-gameover'];
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.remove('active'));
+    document.querySelectorAll('.tab-btn')[['char-select','hud','gameover','audit'].indexOf(tab)].classList.add('active');
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + tab).classList.add('active');
+  }
+
+  function switchVariant(v) {
+    currentVariant = v;
+    document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.variant-btn.' + v).classList.add('active');
+    canvases.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('va','vb','vc');
+      el.classList.add(v);
+    });
+  }
+
+  function selectTrainer(n) {
+    for (let i = 1; i <= 4; i++) {
+      document.getElementById('t'+i).classList.toggle('selected', i === n);
+    }
+  }
+
+  function toggleUrgency() {
+    urgencyOn = !urgencyOn;
+    const timerEl = document.getElementById('hud-timer-el');
+    const urgencyBox = document.getElementById('urgency-box');
+    if (urgencyOn) {
+      timerEl.classList.add('urgent');
+      timerEl.textContent = 'TIME: 8s';
+      urgencyBox.style.display = 'block';
+    } else {
+      timerEl.classList.remove('urgent');
+      timerEl.textContent = 'TIME: 23s';
+      urgencyBox.style.display = 'none';
+    }
+  }
+</script>
+</body>
+</html>
