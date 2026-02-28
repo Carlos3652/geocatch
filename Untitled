@@ -1,0 +1,97 @@
+import streamlit as st
+import folium
+from streamlit_folium import st_folium
+from geopy.distance import geodesic
+import random
+import pandas as pd
+from datetime import datetime
+
+st.set_page_config(page_title="GeoCatch 🌍", page_icon="🌟", layout="wide")
+st.title("🌍 GeoCatch — Pokémon-GO Style Adventure in Overland Park!")
+st.markdown("**Slide to walk around your neighborhood and catch creatures!**")
+
+if "creatures" not in st.session_state:
+    st.session_state.creatures = []
+if "inventory" not in st.session_state:
+    st.session_state.inventory = []
+if "score" not in st.session_state:
+    st.session_state.score = 0
+
+CREATURE_TYPES = {
+    "Fire Drake": {"emoji": "🐉", "color": "red", "points": 50},
+    "Water Sprite": {"emoji": "🧜", "color": "blue", "points": 40},
+    "Forest Guardian": {"emoji": "🌳", "color": "green", "points": 60},
+    "Electric Spark": {"emoji": "⚡", "color": "orange", "points": 45},
+    "Shadow Phantom": {"emoji": "👻", "color": "purple", "points": 70},
+}
+
+with st.sidebar:
+    st.header("📊 Your Stats")
+    st.metric("Score", f"{st.session_state.score:,} pts")
+    st.metric("Caught", len(st.session_state.inventory))
+    if st.session_state.inventory:
+        st.subheader("🎒 Recent Catches")
+        for c in st.session_state.inventory[-5:]:
+            st.write(f"{c['emoji']} {c['name']} (+{c['points']})")
+
+col1, col2 = st.columns([3, 1])
+with col1:
+    player_lat = st.slider("Latitude", 38.85, 39.10, 38.98, 0.0001, key="lat")
+    player_lon = st.slider("Longitude", -94.75, -94.55, -94.67, 0.0001, key="lon")
+
+with col2:
+    if st.button("🚶 Random Walk (50m)", type="primary"):
+        player_lat += random.uniform(-0.0005, 0.0005)
+        player_lon += random.uniform(-0.0005, 0.0005)
+        st.rerun()
+
+if st.button("🔄 Spawn 8 New Creatures Nearby", type="secondary") or not st.session_state.creatures:
+    st.session_state.creatures = []
+    for _ in range(8):
+        lat = player_lat + random.uniform(-0.008, 0.008)
+        lon = player_lon + random.uniform(-0.008, 0.008)
+        name = random.choice(list(CREATURE_TYPES.keys()))
+        st.session_state.creatures.append({
+            "name": name,
+            "lat": lat,
+            "lon": lon,
+            "type": CREATURE_TYPES[name]
+        })
+
+m = folium.Map(location=[player_lat, player_lon], zoom_start=15, tiles="OpenStreetMap")
+folium.Marker([player_lat, player_lon], popup="🧍 YOU", icon=folium.Icon(color="blue", icon="user")).add_to(m)
+
+for i, c in enumerate(st.session_state.creatures):
+    dist = geodesic((player_lat, player_lon), (c["lat"], c["lon"])).meters
+    color = "green" if dist < 100 else "orange" if dist < 200 else "red"
+    folium.Marker(
+        [c["lat"], c["lon"]],
+        popup=f"{c['type']['emoji']} {c['name']}<br>{dist:.0f}m away",
+        icon=folium.Icon(color=color, icon="star")
+    ).add_to(m)
+
+st_folium(m, width=800, height=500)
+
+st.subheader("🎯 Creatures you can catch right now")
+cols = st.columns(4)
+for i, c in enumerate(st.session_state.creatures):
+    dist = geodesic((player_lat, player_lon), (c["lat"], c["lon"])).meters
+    if dist < 100:
+        with cols[i % 4]:
+            if st.button(f"{c['type']['emoji']} Catch {c['name']}", key=f"catch{i}"):
+                st.session_state.inventory.append({
+                    "name": c["name"],
+                    "emoji": c["type"]["emoji"],
+                    "points": c["type"]["points"],
+                    "time": datetime.now().strftime("%H:%M")
+                })
+                st.session_state.score += c["type"]["points"]
+                st.session_state.creatures.pop(i)
+                st.balloons()
+                st.success(f"🎊 Caught {c['name']}! +{c['type']['points']} points")
+                st.rerun()
+
+if st.session_state.inventory:
+    st.subheader("📜 Catch History")
+    df = pd.DataFrame(st.session_state.inventory)
+    st.dataframe(df, use_container_width=True, hide_index=True)
