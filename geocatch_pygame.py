@@ -413,7 +413,7 @@ while running:
 
         elif game_state == "game_over":
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_r:
+                if event.key == pygame.K_r and score_saved:
                     game_state = "character_select"
                 elif not score_saved and len(name_input) < 5 and event.unicode.isalnum():
                     name_input += event.unicode.upper()
