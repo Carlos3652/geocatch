@@ -173,80 +173,80 @@ for _tx, _ty in trees:
     ]
     _tree_data.append({"pos": (_tx, _ty), "berries": _berries})
 
-def draw_world():
-    """Draw the neighbourhood-themed game world."""
-    screen.fill(GRASS)
+def draw_world(surf):
+    """Draw the neighbourhood-themed game world onto surf (MED-08: supports pre-render)."""
+    surf.fill(GRASS)
 
     # --- ANTIOCH RD (right side, vertical) ---
-    pygame.draw.rect(screen, ROAD, (818, 0, 44, HEIGHT))
+    pygame.draw.rect(surf, ROAD, (818, 0, 44, HEIGHT))
 
     # --- W 165TH ST (main horizontal, slight diagonal) ---
-    pygame.draw.polygon(screen, ROAD, [
+    pygame.draw.polygon(surf, ROAD, [
         (0, 334), (818, 324),
         (818, 368), (0, 372)
     ])
 
     # --- SCHOOL CAMPUS (upper-left circular loop road) ---
-    pygame.draw.circle(screen, ROAD, (205, 155), 178)
-    pygame.draw.circle(screen, SCHOOL_GROUND, (205, 155), 150)
-    pygame.draw.rect(screen, (218, 218, 216), (96, 92, 118, 52))    # Cedar Hills
-    pygame.draw.rect(screen, (218, 218, 216), (216, 105, 128, 56))  # Pleasant Ridge
-    pygame.draw.rect(screen, ROAD, (100, 192, 198, 36))              # parking lot
+    pygame.draw.circle(surf, ROAD, (205, 155), 178)
+    pygame.draw.circle(surf, SCHOOL_GROUND, (205, 155), 150)
+    pygame.draw.rect(surf, (218, 218, 216), (96, 92, 118, 52))    # Cedar Hills
+    pygame.draw.rect(surf, (218, 218, 216), (216, 105, 128, 56))  # Pleasant Ridge
+    pygame.draw.rect(surf, ROAD, (100, 192, 198, 36))              # parking lot
     for _px in range(120, 294, 20):
-        pygame.draw.line(screen, SCHOOL_GROUND, (_px, 193), (_px, 227), 1)
+        pygame.draw.line(surf, SCHOOL_GROUND, (_px, 193), (_px, 227), 1)
 
     # --- RESIDENTIAL STREETS (south of 165th) ---
-    pygame.draw.rect(screen, ROAD, (420, 368, 26, 222))   # Grandview St
-    pygame.draw.rect(screen, ROAD, (376, 418, 224, 24))   # 165th Terrace
-    pygame.draw.rect(screen, ROAD, (535, 368, 26, 252))   # Eby St
-    pygame.draw.rect(screen, ROAD, (720, 368, 26, 310))   # Slater St
-    pygame.draw.circle(screen, ROAD,  (433, 590), 24)
-    pygame.draw.circle(screen, GRASS, (433, 590), 14)
-    pygame.draw.circle(screen, ROAD,  (548, 620), 24)
-    pygame.draw.circle(screen, GRASS, (548, 620), 14)
-    pygame.draw.circle(screen, ROAD,  (733, 678), 24)
-    pygame.draw.circle(screen, GRASS, (733, 678), 14)
+    pygame.draw.rect(surf, ROAD, (420, 368, 26, 222))   # Grandview St
+    pygame.draw.rect(surf, ROAD, (376, 418, 224, 24))   # 165th Terrace
+    pygame.draw.rect(surf, ROAD, (535, 368, 26, 252))   # Eby St
+    pygame.draw.rect(surf, ROAD, (720, 368, 26, 310))   # Slater St
+    pygame.draw.circle(surf, ROAD,  (433, 590), 24)
+    pygame.draw.circle(surf, GRASS, (433, 590), 14)
+    pygame.draw.circle(surf, ROAD,  (548, 620), 24)
+    pygame.draw.circle(surf, GRASS, (548, 620), 14)
+    pygame.draw.circle(surf, ROAD,  (733, 678), 24)
+    pygame.draw.circle(surf, GRASS, (733, 678), 14)
 
     # --- PONDS ---
-    pygame.draw.ellipse(screen, LAKE, (378, 374, 58, 28))
-    pygame.draw.ellipse(screen, LAKE, (358, 506, 52, 26))
+    pygame.draw.ellipse(surf, LAKE, (378, 374, 58, 28))
+    pygame.draw.ellipse(surf, LAKE, (358, 506, 52, 26))
 
     # --- HOUSES ---
     for _hx in range(450, 808, 26):
-        pygame.draw.rect(screen, HOUSE_COLOR, (_hx, 300, 20, 17))
+        pygame.draw.rect(surf, HOUSE_COLOR, (_hx, 300, 20, 17))
     for _hx in range(378, 418, 26):
-        pygame.draw.rect(screen, HOUSE_COLOR, (_hx, 450, 20, 17))
+        pygame.draw.rect(surf, HOUSE_COLOR, (_hx, 450, 20, 17))
     for _hy in range(450, 582, 26):
-        pygame.draw.rect(screen, HOUSE_COLOR, (450, _hy, 20, 17))
+        pygame.draw.rect(surf, HOUSE_COLOR, (450, _hy, 20, 17))
     for _hy in range(450, 616, 26):
-        pygame.draw.rect(screen, HOUSE_COLOR, (508, _hy, 20, 17))
+        pygame.draw.rect(surf, HOUSE_COLOR, (508, _hy, 20, 17))
     for _hy in range(450, 616, 26):
-        pygame.draw.rect(screen, HOUSE_COLOR, (564, _hy, 20, 17))
+        pygame.draw.rect(surf, HOUSE_COLOR, (564, _hy, 20, 17))
     for _hy in range(395, 668, 26):
-        pygame.draw.rect(screen, HOUSE_COLOR, (694, _hy, 20, 17))
+        pygame.draw.rect(surf, HOUSE_COLOR, (694, _hy, 20, 17))
     for _hy in range(395, 668, 26):
-        pygame.draw.rect(screen, HOUSE_COLOR, (749, _hy, 20, 17))
+        pygame.draw.rect(surf, HOUSE_COLOR, (749, _hy, 20, 17))
 
     # --- DISC GOLF COURSE MARKER ---
-    pygame.draw.circle(screen, (76, 175, 80), (555, 252), 9)
-    pygame.draw.circle(screen, WHITE, (555, 252), 9, 2)
+    pygame.draw.circle(surf, (76, 175, 80), (555, 252), 9)
+    pygame.draw.circle(surf, WHITE, (555, 252), 9, 2)
     _dg = tiny_font.render("Disc Golf", True, (70, 140, 70))
-    screen.blit(_dg, (530, 265))
+    surf.blit(_dg, (530, 265))
 
     # --- TREES ---
     for td in _tree_data:
         tx, ty = td["pos"]
         cx, cy = tx + 15, ty + 20
-        screen.blit(_shad_tree, (tx - 10, ty + 56))
-        pygame.draw.rect(screen, TREE_TRUNK, (tx + 8, ty + 25, 14, 35))
-        pygame.draw.circle(screen, (18, 76, 18),  (cx, cy), 30)
-        pygame.draw.circle(screen, (34, 130, 34), (cx, cy), 28)
-        pygame.draw.circle(screen, (18, 76, 18),  (cx - 9, cy - 11), 23)
-        pygame.draw.circle(screen, (50, 155, 50), (cx - 9, cy - 11), 21)
-        pygame.draw.circle(screen, (18, 76, 18),  (cx + 9, cy - 8), 19)
-        pygame.draw.circle(screen, (70, 180, 55), (cx + 9, cy - 8), 17)
+        surf.blit(_shad_tree, (tx - 10, ty + 56))
+        pygame.draw.rect(surf, TREE_TRUNK, (tx + 8, ty + 25, 14, 35))
+        pygame.draw.circle(surf, (18, 76, 18),  (cx, cy), 30)
+        pygame.draw.circle(surf, (34, 130, 34), (cx, cy), 28)
+        pygame.draw.circle(surf, (18, 76, 18),  (cx - 9, cy - 11), 23)
+        pygame.draw.circle(surf, (50, 155, 50), (cx - 9, cy - 11), 21)
+        pygame.draw.circle(surf, (18, 76, 18),  (cx + 9, cy - 8), 19)
+        pygame.draw.circle(surf, (70, 180, 55), (cx + 9, cy - 8), 17)
         for bx, by in td["berries"]:
-            pygame.draw.circle(screen, (210, 45, 45), (bx, by), 3)
+            pygame.draw.circle(surf, (210, 45, 45), (bx, by), 3)
 
 
 def in_lake(x, y):
@@ -258,6 +258,11 @@ def in_lake(x, y):
     return False
 
 
+# MED-08: pre-render static world once at startup (blit each frame instead of redrawing ~50 calls)
+_world_surf = pygame.Surface((WIDTH, HEIGHT))
+draw_world(_world_surf)
+
+
 def spawn_creatures(n=8):
     global creatures
     creatures = []
@@ -265,10 +270,11 @@ def spawn_creatures(n=8):
         for _attempt in range(10):
             px = random.randint(80, WIDTH - 80)
             py = random.randint(80, HEIGHT - 80)
-            if not in_lake(px, py):
+            # MED-01: also reject positions too close to rocks (creature would be unreachable)
+            if not in_lake(px, py) and not any(math.hypot(px - rx, py - ry) < 65 for rx, ry in rocks):
                 break
         else:
-            px, py = WIDTH // 2, HEIGHT // 2  # CRIT-02: fallback if all attempts hit water
+            px, py = WIDTH // 2, HEIGHT // 2  # fallback if all attempts fail
         creatures.append({
             "x": px,
             "y": py,
@@ -362,6 +368,14 @@ _cs_btn_surf.fill((*ACCENT[:3], 230))
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def _make_float_text(text, x, y, color):
+    """Pre-render a floating score label once (MED-07: avoids two surface allocs per frame)."""
+    _ts = font.render(text, True, color)
+    _as = pygame.Surface(_ts.get_size(), pygame.SRCALPHA)
+    _as.blit(_ts, (0, 0))
+    return {"x": x, "y": y, "timer": 1.0, "_surf": _as, "_w": _ts.get_width()}
+
+
 running = True
 while running:
     dt = clock.tick(60) / 1000.0   # CRIT-01: dt set at top of loop, always valid
@@ -394,7 +408,7 @@ while running:
                         caught = c["type"]
                         score += caught["points"]
                         inventory.append(caught["name"])
-                        float_texts.append({"text": f"+{caught['points']}", "x": c["x"], "y": c["y"], "timer": 1.0, "color": SCORE_GOLD})
+                        float_texts.append(_make_float_text(f"+{caught['points']}", c["x"], c["y"], SCORE_GOLD))
                         del creatures[i]
 
         elif game_state == "game_over":
@@ -436,7 +450,7 @@ while running:
             bx, by = bombs[i]
             if bomb_cooldown == 0 and math.hypot(player_x - bx, player_y - by) < 40:
                 score = max(0, score - 100)
-                float_texts.append({"text": "\u2212100", "x": bx, "y": by, "timer": 1.0, "color": (255, 82, 82)})
+                float_texts.append(_make_float_text("\u2212100", bx, by, (255, 82, 82)))
                 bomb_flash_frames = 3
                 bombs[i] = (random.randint(100, WIDTH - 100), random.randint(100, HEIGHT - 100))
                 bomb_cooldown = 90
@@ -457,7 +471,7 @@ while running:
 
     # ── DRAW ──────────────────────────────────────────────────────────────────
     if game_state == "character_select":
-        draw_world()
+        screen.blit(_world_surf, (0, 0))
         screen.blit(_cs_overlay, (0, 0))
         screen.blit(_cs_panel, (_cs_panel_x, _cs_panel_y))
 
@@ -577,7 +591,7 @@ while running:
                 screen.blit(line, (WIDTH // 2 - line.get_width() // 2, go_y + 260 + i * 30))
 
     else:  # playing
-        draw_world()
+        screen.blit(_world_surf, (0, 0))
 
         for rd in _rock_data:
             rx, ry = rd["pos"]
@@ -590,7 +604,7 @@ while running:
 
         _bt = pygame.time.get_ticks() / 1000.0
         for bx, by in bombs:
-            screen.blit(_shad_bomb, (bx - 25, by + 16))
+            screen.blit(_shad_bomb, (bx - 25, by + 20))
             pygame.draw.circle(screen, (50, 50, 50), (bx, by), 20)
             pygame.draw.circle(screen, (20, 20, 20), (bx, by), 18)
             pygame.draw.circle(screen, (80, 80, 80), (bx - 6, by - 6), 5)
@@ -642,6 +656,9 @@ while running:
             screen.blit(border_s, (lbl_x, lbl_y))
             screen.blit(label_text, (lbl_x + pad_x, lbl_y + pad_y))
 
+        # MED-03: correct draw order — shadow → catch radius → pulse ring → sprite
+        screen.blit(_shad_trainer, (player_x - 30, player_y + 40))
+
         # Catch radius indicator
         pygame.draw.circle(screen, (200, 200, 200), (player_x, player_y), 55, 1)
 
@@ -654,7 +671,6 @@ while running:
         pygame.draw.circle(_ring_surf, (*ACCENT, _ring_alpha), (_ring_r + 2, _ring_r + 2), _ring_r, 2)
         screen.blit(_ring_surf, (player_x - _ring_r - 2, player_y - 10 - _ring_r - 2))
 
-        screen.blit(_shad_trainer, (player_x - 30, player_y + 40))
         if trainer_images[selected_char]:
             screen.blit(trainer_images[selected_char], (player_x - 28, player_y - 45))
         else:
@@ -669,12 +685,8 @@ while running:
         for ft in float_texts:
             progress = 1.0 - ft["timer"]
             draw_y = int(ft["y"] - progress * 60)
-            alpha = int(ft["timer"] * 255)
-            text_surf = font.render(ft["text"], True, ft["color"])
-            alpha_surf = pygame.Surface(text_surf.get_size(), pygame.SRCALPHA)
-            alpha_surf.blit(text_surf, (0, 0))
-            alpha_surf.set_alpha(alpha)
-            screen.blit(alpha_surf, (int(ft["x"]) - text_surf.get_width() // 2, draw_y))
+            ft["_surf"].set_alpha(int(ft["timer"] * 255))
+            screen.blit(ft["_surf"], (int(ft["x"]) - ft["_w"] // 2, draw_y))
 
         # Score pill (top-left)
         score_pill_rect = pygame.Rect(15, 12, 210, 44)
