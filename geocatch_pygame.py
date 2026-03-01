@@ -36,12 +36,12 @@ for i in range(1, 5):
     try:
         img = pygame.transform.smoothscale(pygame.image.load(f"trainer{i}.png"), (70, 90))
         trainer_images.append(img)
-    except:
+    except (FileNotFoundError, pygame.error):
         trainer_images.append(None)
 
 selected_char = 0
 game_state = "character_select"
-trainer_card_rects = []  # updated each frame during character_select draw for mouse hit-testing
+trainer_card_rects = []
 
 player_x = WIDTH // 2
 player_y = HEIGHT // 2
@@ -53,19 +53,26 @@ start_ticks = 0
 name_input = ""
 float_texts = []
 bomb_flash_frames = 0
-dt = 0
+bomb_cooldown = 0          # HIGH-03: frames remaining before next bomb hit registers
+dt = 1 / 60                # CRIT-01: valid delta on the very first frame
 is_new_high_score = False
 score_saved = False
 
-# High scores
+# High scores — CRIT-03: hardened parser
 high_scores = []
 if os.path.exists("highscores.txt"):
     try:
         with open("highscores.txt") as f:
-            high_scores = [(line.split()[0], int(line.split()[1])) for line in f.readlines()]
-        high_scores.sort(key=lambda x: x[1], reverse=True)
-        high_scores = high_scores[:5]
-    except:
+            parsed = []
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.rsplit(maxsplit=1)
+                if len(parts) == 2:
+                    parsed.append((parts[0], int(parts[1])))
+            high_scores = sorted(parsed, key=lambda x: x[1], reverse=True)[:5]
+    except (ValueError, OSError):
         high_scores = []
 
 def save_high_score(name, sc):
@@ -80,28 +87,28 @@ def save_high_score(name, sc):
 # Monsters
 creature_images = {}
 try:
-    creature_images["fire_drake"] = pygame.transform.smoothscale(pygame.image.load("fire_drake.png"), (60, 60))
-    creature_images["water_sprite"] = pygame.transform.smoothscale(pygame.image.load("water_sprite.png"), (60, 60))
+    creature_images["fire_drake"]      = pygame.transform.smoothscale(pygame.image.load("fire_drake.png"),      (60, 60))
+    creature_images["water_sprite"]    = pygame.transform.smoothscale(pygame.image.load("water_sprite.png"),    (60, 60))
     creature_images["forest_guardian"] = pygame.transform.smoothscale(pygame.image.load("forest_guardian.png"), (60, 60))
-    creature_images["electric_spark"] = pygame.transform.smoothscale(pygame.image.load("electric_spark.png"), (60, 60))
-    creature_images["shadow_phantom"] = pygame.transform.smoothscale(pygame.image.load("shadow_phantom.png"), (60, 60))
-except:
+    creature_images["electric_spark"]  = pygame.transform.smoothscale(pygame.image.load("electric_spark.png"),  (60, 60))
+    creature_images["shadow_phantom"]  = pygame.transform.smoothscale(pygame.image.load("shadow_phantom.png"),  (60, 60))
+except (FileNotFoundError, pygame.error):
     pass
 
 CREATURE_TYPES = [
-    {"name": "Fire Drake", "image_key": "fire_drake", "points": 50},
-    {"name": "Water Sprite", "image_key": "water_sprite", "points": 40},
-    {"name": "Forest Guardian", "image_key": "forest_guardian", "points": 60},
-    {"name": "Electric Spark", "image_key": "electric_spark", "points": 45},
-    {"name": "Shadow Phantom", "image_key": "shadow_phantom", "points": 70},
+    {"name": "Fire Drake",       "image_key": "fire_drake",      "points": 50},
+    {"name": "Water Sprite",     "image_key": "water_sprite",    "points": 40},
+    {"name": "Forest Guardian",  "image_key": "forest_guardian", "points": 60},
+    {"name": "Electric Spark",   "image_key": "electric_spark",  "points": 45},
+    {"name": "Shadow Phantom",   "image_key": "shadow_phantom",  "points": 70},
 ]
 
 CREATURE_COLORS = {
-    "Fire Drake": (255, 107, 0),
-    "Water Sprite": (59, 159, 212),
+    "Fire Drake":      (255, 107, 0),
+    "Water Sprite":    (59, 159, 212),
     "Forest Guardian": (76, 175, 80),
-    "Electric Spark": (255, 215, 0),
-    "Shadow Phantom": (156, 39, 176),
+    "Electric Spark":  (255, 215, 0),
+    "Shadow Phantom":  (156, 39, 176),
 }
 
 # Pre-created shadow surfaces (allocated once, reused every frame)
@@ -123,6 +130,9 @@ for _ct in CREATURE_TYPES:
     _tc_surf = pygame.Surface((56, 18), pygame.SRCALPHA)
     pygame.draw.ellipse(_tc_surf, (*_tc_color, 110), (0, 0, 56, 18))
     _type_circles[_ct["name"]] = _tc_surf
+
+# Pre-allocated Shadow Phantom glow surface (fixed max size, cleared+redrawn each frame)
+_phantom_glow_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
 
 creatures = []
 rocks = [(200, 200), (700, 150), (300, 500), (800, 400), (150, 550), (650, 550)]
@@ -177,8 +187,8 @@ def draw_world():
     ])
 
     # --- SCHOOL CAMPUS (upper-left circular loop road) ---
-    pygame.draw.circle(screen, ROAD, (205, 155), 178)           # outer road ring
-    pygame.draw.circle(screen, SCHOOL_GROUND, (205, 155), 150)  # campus interior
+    pygame.draw.circle(screen, ROAD, (205, 155), 178)
+    pygame.draw.circle(screen, SCHOOL_GROUND, (205, 155), 150)
     pygame.draw.rect(screen, (218, 218, 216), (96, 92, 118, 52))    # Cedar Hills
     pygame.draw.rect(screen, (218, 218, 216), (216, 105, 128, 56))  # Pleasant Ridge
     pygame.draw.rect(screen, ROAD, (100, 192, 198, 36))              # parking lot
@@ -190,32 +200,31 @@ def draw_world():
     pygame.draw.rect(screen, ROAD, (376, 418, 224, 24))   # 165th Terrace
     pygame.draw.rect(screen, ROAD, (535, 368, 26, 252))   # Eby St
     pygame.draw.rect(screen, ROAD, (720, 368, 26, 310))   # Slater St
-    # Cul-de-sac bulbs
-    pygame.draw.circle(screen, ROAD, (433, 590), 24)
+    pygame.draw.circle(screen, ROAD,  (433, 590), 24)
     pygame.draw.circle(screen, GRASS, (433, 590), 14)
-    pygame.draw.circle(screen, ROAD, (548, 620), 24)
+    pygame.draw.circle(screen, ROAD,  (548, 620), 24)
     pygame.draw.circle(screen, GRASS, (548, 620), 14)
-    pygame.draw.circle(screen, ROAD, (733, 678), 24)
+    pygame.draw.circle(screen, ROAD,  (733, 678), 24)
     pygame.draw.circle(screen, GRASS, (733, 678), 14)
 
     # --- PONDS ---
-    pygame.draw.ellipse(screen, LAKE, (378, 374, 58, 28))    # main pond (south of 165th)
-    pygame.draw.ellipse(screen, LAKE, (358, 506, 52, 26))    # south pond
+    pygame.draw.ellipse(screen, LAKE, (378, 374, 58, 28))
+    pygame.draw.ellipse(screen, LAKE, (358, 506, 52, 26))
 
     # --- HOUSES ---
-    for _hx in range(450, 808, 26):    # north side of 165th
+    for _hx in range(450, 808, 26):
         pygame.draw.rect(screen, HOUSE_COLOR, (_hx, 300, 20, 17))
-    for _hx in range(378, 418, 26):    # west of Grandview, south of terrace
+    for _hx in range(378, 418, 26):
         pygame.draw.rect(screen, HOUSE_COLOR, (_hx, 450, 20, 17))
-    for _hy in range(450, 582, 26):    # east side of Grandview
+    for _hy in range(450, 582, 26):
         pygame.draw.rect(screen, HOUSE_COLOR, (450, _hy, 20, 17))
-    for _hy in range(450, 616, 26):    # west side of Eby
+    for _hy in range(450, 616, 26):
         pygame.draw.rect(screen, HOUSE_COLOR, (508, _hy, 20, 17))
-    for _hy in range(450, 616, 26):    # east side of Eby
+    for _hy in range(450, 616, 26):
         pygame.draw.rect(screen, HOUSE_COLOR, (564, _hy, 20, 17))
-    for _hy in range(395, 668, 26):    # west side of Slater
+    for _hy in range(395, 668, 26):
         pygame.draw.rect(screen, HOUSE_COLOR, (694, _hy, 20, 17))
-    for _hy in range(395, 668, 26):    # east side of Slater
+    for _hy in range(395, 668, 26):
         pygame.draw.rect(screen, HOUSE_COLOR, (749, _hy, 20, 17))
 
     # --- DISC GOLF COURSE MARKER ---
@@ -230,11 +239,11 @@ def draw_world():
         cx, cy = tx + 15, ty + 20
         screen.blit(_shad_tree, (tx - 10, ty + 56))
         pygame.draw.rect(screen, TREE_TRUNK, (tx + 8, ty + 25, 14, 35))
-        pygame.draw.circle(screen, (18, 76, 18), (cx, cy), 30)
+        pygame.draw.circle(screen, (18, 76, 18),  (cx, cy), 30)
         pygame.draw.circle(screen, (34, 130, 34), (cx, cy), 28)
-        pygame.draw.circle(screen, (18, 76, 18), (cx - 9, cy - 11), 23)
+        pygame.draw.circle(screen, (18, 76, 18),  (cx - 9, cy - 11), 23)
         pygame.draw.circle(screen, (50, 155, 50), (cx - 9, cy - 11), 21)
-        pygame.draw.circle(screen, (18, 76, 18), (cx + 9, cy - 8), 19)
+        pygame.draw.circle(screen, (18, 76, 18),  (cx + 9, cy - 8), 19)
         pygame.draw.circle(screen, (70, 180, 55), (cx + 9, cy - 8), 17)
         for bx, by in td["berries"]:
             pygame.draw.circle(screen, (210, 45, 45), (bx, by), 3)
@@ -258,6 +267,8 @@ def spawn_creatures(n=8):
             py = random.randint(80, HEIGHT - 80)
             if not in_lake(px, py):
                 break
+        else:
+            px, py = WIDTH // 2, HEIGHT // 2  # CRIT-02: fallback if all attempts hit water
         creatures.append({
             "x": px,
             "y": py,
@@ -266,8 +277,8 @@ def spawn_creatures(n=8):
         })
 
 def reset_game():
-    global score, inventory, player_x, player_y, start_ticks, creatures, bombs, float_texts, bomb_flash_frames
-    global score_saved, is_new_high_score
+    global score, inventory, player_x, player_y, start_ticks, creatures, bombs, float_texts
+    global bomb_flash_frames, bomb_cooldown, score_saved, is_new_high_score, name_input
     score = 0
     inventory = []
     player_x = WIDTH // 2
@@ -277,11 +288,84 @@ def reset_game():
     bombs = [(450, 250), (550, 450), (250, 350), (750, 300)]
     float_texts.clear()
     bomb_flash_frames = 0
+    bomb_cooldown = 0
+    name_input = ""          # CRIT-04: clear name between sessions
     score_saved = False
     is_new_high_score = False
 
+
+# ── HIGH-07: Pre-cached character-select surfaces ─────────────────────────────
+_CS_PANEL_W, _CS_PANEL_H = 760, 320
+_cs_panel_x = WIDTH // 2 - _CS_PANEL_W // 2
+_cs_panel_y = HEIGHT // 2 - 220
+_CS_CARD_W, _CS_CARD_H, _CS_CARD_GAP = 140, 160, 16
+_CS_MINI_Y = _cs_panel_y + _CS_PANEL_H + 12
+_CS_MINI_H = HEIGHT - _CS_MINI_Y - 10
+_CS_MINI_W = (_CS_PANEL_W - 10) // 2
+_CS_LEFT_X  = _cs_panel_x
+_CS_RIGHT_X = _cs_panel_x + _CS_MINI_W + 10
+
+_cs_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+_cs_overlay.fill((0, 0, 0, 158))
+
+_cs_panel = pygame.Surface((_CS_PANEL_W, _CS_PANEL_H), pygame.SRCALPHA)
+_cs_panel.fill((26, 26, 46, 235))
+pygame.draw.rect(_cs_panel, (255, 107, 53, 100), (0, 0, _CS_PANEL_W, _CS_PANEL_H), width=1, border_radius=14)
+
+_cs_how_surf = pygame.Surface((_CS_MINI_W, _CS_MINI_H), pygame.SRCALPHA)
+_cs_how_surf.fill((26, 26, 46, 210))
+_cs_hs_surf = pygame.Surface((_CS_MINI_W, _CS_MINI_H), pygame.SRCALPHA)
+_cs_hs_surf.fill((26, 26, 46, 210))
+
+_cs_card_normal = pygame.Surface((_CS_CARD_W, _CS_CARD_H), pygame.SRCALPHA)
+_cs_card_normal.fill((255, 255, 255, 15))
+pygame.draw.rect(_cs_card_normal, (255, 255, 255, 38), (0, 0, _CS_CARD_W, _CS_CARD_H), width=2, border_radius=10)
+
+_cs_card_selected = pygame.Surface((_CS_CARD_W, _CS_CARD_H), pygame.SRCALPHA)
+_cs_card_selected.fill((255, 107, 53, 30))
+pygame.draw.rect(_cs_card_selected, (*ACCENT, 255), (0, 0, _CS_CARD_W, _CS_CARD_H), width=2, border_radius=10)
+
+_cs_card_glow = pygame.Surface((_CS_CARD_W + 6, _CS_CARD_H + 6), pygame.SRCALPHA)
+pygame.draw.rect(_cs_card_glow, (255, 107, 53, 60), (0, 0, _CS_CARD_W + 6, _CS_CARD_H + 6), width=3, border_radius=13)
+
+_cs_title_shadow = title_font.render("GEOCATCH", True, ACCENT)
+_cs_title        = title_font.render("GEOCATCH", True, WHITE)
+_cs_subtitle     = tiny_font.render("OVERLAND PARK EDITION", True, (170, 170, 170))
+_cs_divider      = tiny_font.render("— CHOOSE YOUR TRAINER —", True, (136, 136, 136))
+_cs_how_title    = small_font.render("HOW TO PLAY", True, ACCENT)
+_cs_hs_title_txt = small_font.render("TOP SCORES", True, ACCENT)
+
+_CS_BULLET_SURFS = [
+    tiny_font.render(f"• {bl}", True, (200, 200, 200)) for bl in [
+        "Move with Arrow Keys or WASD",
+        "SPACE near a creature to catch it",
+        "Avoid bombs  (-100 pts)",
+        "Fire Drake=50 | Water Sprite=40",
+        "Forest Guardian=60 | Elec. Spark=45",
+        "Shadow Phantom=70",
+    ]
+]
+_cs_trainer_labels = [tiny_font.render(f"Trainer {i+1}", True, WHITE)  for i in range(4)]
+_cs_trainer_hints  = [tiny_font.render(f"[{i+1}]",       True, ACCENT) for i in range(4)]
+_cs_selected_text  = tiny_font.render("SELECTED", True, WHITE)
+_cs_badge_w = _cs_selected_text.get_width() + 10
+_cs_badge_h = _cs_selected_text.get_height() + 4
+_cs_badge_surf = pygame.Surface((_cs_badge_w, _cs_badge_h), pygame.SRCALPHA)
+_cs_badge_surf.fill((*ACCENT[:3], 220))
+pygame.draw.rect(_cs_badge_surf, WHITE, (0, 0, _cs_badge_w, _cs_badge_h), width=1, border_radius=4)
+
+_cs_btn_text_surf = small_font.render("PRESS ENTER OR [1-4] TO START", True, WHITE)
+_cs_btn_w = _cs_btn_text_surf.get_width() + 32
+_cs_btn_h = _cs_btn_text_surf.get_height() + 12
+_cs_btn_surf = pygame.Surface((_cs_btn_w, _cs_btn_h), pygame.SRCALPHA)
+_cs_btn_surf.fill((*ACCENT[:3], 230))
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 running = True
 while running:
+    dt = clock.tick(60) / 1000.0   # CRIT-01: dt set at top of loop, always valid
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -289,20 +373,29 @@ while running:
         if game_state == "character_select":
             if event.type == pygame.KEYDOWN:
                 if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4]:
-                    # Keys 1-4: select AND start immediately (backward compat)
                     selected_char = int(event.unicode) - 1
                     game_state = "playing"
                     reset_game()
                 elif event.key in [pygame.K_RETURN, pygame.K_KP_ENTER]:
-                    # Enter: start with currently selected trainer
                     game_state = "playing"
                     reset_game()
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                # Click on a trainer card: select only, do not start
                 for i, rect in enumerate(trainer_card_rects):
                     if rect.collidepoint(event.pos):
                         selected_char = i
                         break
+
+        elif game_state == "playing":
+            # HIGH-02: single KEYDOWN instead of held-key poll — prevents multi-catch per hold
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                for i in range(len(creatures) - 1, -1, -1):
+                    c = creatures[i]
+                    if math.hypot(player_x - c["x"], player_y - c["y"]) < 55:
+                        caught = c["type"]
+                        score += caught["points"]
+                        inventory.append(caught["name"])
+                        float_texts.append({"text": f"+{caught['points']}", "x": c["x"], "y": c["y"], "timer": 1.0, "color": SCORE_GOLD})
+                        del creatures[i]
 
         elif game_state == "game_over":
             if event.type == pygame.KEYDOWN:
@@ -317,44 +410,37 @@ while running:
                     name_input = ""
                     score_saved = True
 
+    # ── UPDATE ────────────────────────────────────────────────────────────────
     if game_state == "playing":
         keys = pygame.key.get_pressed()
         new_x, new_y = player_x, player_y
 
-        if keys[pygame.K_UP] or keys[pygame.K_w]: new_y -= player_speed
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]: new_y += player_speed
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]: new_x -= player_speed
+        if keys[pygame.K_UP]    or keys[pygame.K_w]: new_y -= player_speed
+        if keys[pygame.K_DOWN]  or keys[pygame.K_s]: new_y += player_speed
+        if keys[pygame.K_LEFT]  or keys[pygame.K_a]: new_x -= player_speed
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]: new_x += player_speed
 
-        blocked = False
-        for rx, ry in rocks:
-            if math.hypot(new_x - rx, new_y - ry) < 55:
-                blocked = True
-                break
-        if not blocked:
-            player_x, player_y = new_x, new_y
+        # HIGH-01: resolve each axis independently — no sticky-wall diagonal blocking
+        if not any(math.hypot(new_x - rx, player_y - ry) < 55 for rx, ry in rocks):
+            player_x = new_x
+        if not any(math.hypot(player_x - rx, new_y - ry) < 55 for rx, ry in rocks):
+            player_y = new_y
 
         player_x = max(40, min(WIDTH - 40, player_x))
         player_y = max(40, min(HEIGHT - 40, player_y))
 
-        for i in range(len(bombs)-1, -1, -1):
+        # HIGH-03: bomb collision with 1.5-second cooldown (90 frames)
+        if bomb_cooldown > 0:
+            bomb_cooldown -= 1
+        for i in range(len(bombs) - 1, -1, -1):
             bx, by = bombs[i]
-            if math.hypot(player_x - bx, player_y - by) < 40:
+            if bomb_cooldown == 0 and math.hypot(player_x - bx, player_y - by) < 40:
                 score = max(0, score - 100)
                 float_texts.append({"text": "\u2212100", "x": bx, "y": by, "timer": 1.0, "color": (255, 82, 82)})
                 bomb_flash_frames = 3
-                bombs[i] = (random.randint(100, WIDTH-100), random.randint(100, HEIGHT-100))
-
-        if keys[pygame.K_SPACE]:
-            for i in range(len(creatures)-1, -1, -1):
-                c = creatures[i]
-                dist = math.hypot(player_x - c["x"], player_y - c["y"])
-                if dist < 55:
-                    caught = c["type"]
-                    score += caught["points"]
-                    inventory.append(caught["name"])
-                    float_texts.append({"text": f"+{caught['points']}", "x": c["x"], "y": c["y"], "timer": 1.0, "color": SCORE_GOLD})
-                    del creatures[i]
+                bombs[i] = (random.randint(100, WIDTH - 100), random.randint(100, HEIGHT - 100))
+                bomb_cooldown = 90
+                break  # one bomb per cooldown window
 
         for ft in float_texts:
             ft["timer"] -= dt
@@ -369,269 +455,204 @@ while running:
             is_new_high_score = (len(high_scores) < 5 or score > min(s for _, s in high_scores)) if high_scores else True
             game_state = "game_over"
 
-    # Draw
+    # ── DRAW ──────────────────────────────────────────────────────────────────
     if game_state == "character_select":
-        # --- Storybook Variant A: world background + overlay ---
         draw_world()
-
-        # Full-screen dark overlay (~62% opacity)
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 158))
-        screen.blit(overlay, (0, 0))
-
-        # --- Main center panel (760x320, centered) ---
-        PANEL_W, PANEL_H = 760, 320
-        panel_x = WIDTH // 2 - PANEL_W // 2
-        panel_y = HEIGHT // 2 - 220
-        panel_surf = pygame.Surface((PANEL_W, PANEL_H), pygame.SRCALPHA)
-        panel_surf.fill((26, 26, 46, 235))
-        screen.blit(panel_surf, (panel_x, panel_y))
-        # Panel border
-        border_surf = pygame.Surface((PANEL_W, PANEL_H), pygame.SRCALPHA)
-        pygame.draw.rect(border_surf, (255, 107, 53, 100), (0, 0, PANEL_W, PANEL_H), width=1, border_radius=14)
-        screen.blit(border_surf, (panel_x, panel_y))
+        screen.blit(_cs_overlay, (0, 0))
+        screen.blit(_cs_panel, (_cs_panel_x, _cs_panel_y))
 
         cx = WIDTH // 2
-        ty = panel_y + 18
+        ty = _cs_panel_y + 18
+        tw = _cs_title.get_width()
+        screen.blit(_cs_title_shadow, (cx - tw // 2 + 3, ty + 3))
+        screen.blit(_cs_title,        (cx - tw // 2,     ty))
+        ty += _cs_title.get_height() + 2
+        screen.blit(_cs_subtitle, (cx - _cs_subtitle.get_width() // 2, ty))
+        ty += _cs_subtitle.get_height() + 10
+        screen.blit(_cs_divider,  (cx - _cs_divider.get_width()  // 2, ty))
 
-        # Title "GEOCATCH" with drop shadow
-        title_surf_shadow = title_font.render("GEOCATCH", True, ACCENT)
-        title_surf = title_font.render("GEOCATCH", True, WHITE)
-        tw = title_surf.get_width()
-        screen.blit(title_surf_shadow, (cx - tw // 2 + 3, ty + 3))
-        screen.blit(title_surf, (cx - tw // 2, ty))
-
-        # Subtitle
-        ty += title_surf.get_height() + 2
-        sub_surf = tiny_font.render("OVERLAND PARK EDITION", True, (170, 170, 170))
-        screen.blit(sub_surf, (cx - sub_surf.get_width() // 2, ty))
-
-        # Section divider
-        ty += sub_surf.get_height() + 10
-        div_surf = tiny_font.render("— CHOOSE YOUR TRAINER —", True, (136, 136, 136))
-        screen.blit(div_surf, (cx - div_surf.get_width() // 2, ty))
-
-        # Trainer cards: 4 cards, 140px wide, 16px gap, centered inside panel
-        CARD_W, CARD_H = 140, 160
-        CARD_GAP = 16
-        total_cards_w = 4 * CARD_W + 3 * CARD_GAP
+        total_cards_w = 4 * _CS_CARD_W + 3 * _CS_CARD_GAP
         cards_start_x = cx - total_cards_w // 2
-        cards_y = ty + div_surf.get_height() + 10
+        cards_y = ty + _cs_divider.get_height() + 10
 
         trainer_card_rects.clear()
         for i in range(4):
-            card_x = cards_start_x + i * (CARD_W + CARD_GAP)
-            card_rect = pygame.Rect(card_x, cards_y, CARD_W, CARD_H)
-            trainer_card_rects.append(card_rect)
-
+            card_x = cards_start_x + i * (_CS_CARD_W + _CS_CARD_GAP)
+            trainer_card_rects.append(pygame.Rect(card_x, cards_y, _CS_CARD_W, _CS_CARD_H))
             is_selected = (i == selected_char)
 
-            # Card background
-            card_surf = pygame.Surface((CARD_W, CARD_H), pygame.SRCALPHA)
             if is_selected:
-                card_surf.fill((255, 107, 53, 30))
+                screen.blit(_cs_card_glow,     (card_x - 3, cards_y - 3))
+                screen.blit(_cs_card_selected, (card_x, cards_y))
             else:
-                card_surf.fill((255, 255, 255, 15))
-            screen.blit(card_surf, (card_x, cards_y))
+                screen.blit(_cs_card_normal, (card_x, cards_y))
 
-            # Card border (selected = ACCENT glow, normal = faint white)
-            border_col = ACCENT if is_selected else (255, 255, 255, 38)
-            border_s = pygame.Surface((CARD_W, CARD_H), pygame.SRCALPHA)
-            border_alpha = 255 if is_selected else 38
-            pygame.draw.rect(border_s, (*ACCENT[:3], border_alpha) if is_selected else (255, 255, 255, 38),
-                             (0, 0, CARD_W, CARD_H), width=2, border_radius=10)
-            screen.blit(border_s, (card_x, cards_y))
-
-            # Selected glow: extra outer rect slightly larger
-            if is_selected:
-                glow_s = pygame.Surface((CARD_W + 6, CARD_H + 6), pygame.SRCALPHA)
-                pygame.draw.rect(glow_s, (255, 107, 53, 60), (0, 0, CARD_W + 6, CARD_H + 6), width=3, border_radius=13)
-                screen.blit(glow_s, (card_x - 3, cards_y - 3))
-
-            # Trainer image centered (70x90), top portion of card
-            img_x = card_x + CARD_W // 2 - 35
+            img_x = card_x + _CS_CARD_W // 2 - 35
             img_y = cards_y + 10
             if trainer_images[i]:
                 screen.blit(trainer_images[i], (img_x, img_y))
             else:
-                fallback = font.render("T", True, WHITE)
-                screen.blit(fallback, (card_x + CARD_W // 2 - fallback.get_width() // 2, img_y + 20))
+                fb = font.render("T", True, WHITE)
+                screen.blit(fb, (card_x + _CS_CARD_W // 2 - fb.get_width() // 2, img_y + 20))
 
-            # Trainer label
-            label_surf = tiny_font.render(f"Trainer {i + 1}", True, WHITE)
-            screen.blit(label_surf, (card_x + CARD_W // 2 - label_surf.get_width() // 2, img_y + 96))
+            lbl = _cs_trainer_labels[i]
+            screen.blit(lbl, (card_x + _CS_CARD_W // 2 - lbl.get_width() // 2, img_y + 96))
+            hnt = _cs_trainer_hints[i]
+            screen.blit(hnt, (card_x + _CS_CARD_W // 2 - hnt.get_width() // 2, img_y + 112))
 
-            # Number hint "[1]" in ACCENT
-            hint_surf = tiny_font.render(f"[{i + 1}]", True, ACCENT)
-            screen.blit(hint_surf, (card_x + CARD_W // 2 - hint_surf.get_width() // 2, img_y + 112))
-
-            # "SELECTED" badge on selected card
             if is_selected:
-                badge_text = tiny_font.render("SELECTED", True, WHITE)
-                badge_w = badge_text.get_width() + 10
-                badge_h = badge_text.get_height() + 4
-                badge_x = card_x + CARD_W // 2 - badge_w // 2
-                badge_y = cards_y + CARD_H - badge_h - 6
-                badge_surf = pygame.Surface((badge_w, badge_h), pygame.SRCALPHA)
-                badge_surf.fill((*ACCENT[:3], 220))
-                pygame.draw.rect(badge_surf, WHITE, (0, 0, badge_w, badge_h), width=1, border_radius=4)
-                screen.blit(badge_surf, (badge_x, badge_y))
-                screen.blit(badge_text, (badge_x + 5, badge_y + 2))
+                badge_x = card_x + _CS_CARD_W // 2 - _cs_badge_w // 2
+                badge_y = cards_y + _CS_CARD_H - _cs_badge_h - 6
+                screen.blit(_cs_badge_surf,  (badge_x, badge_y))
+                screen.blit(_cs_selected_text, (badge_x + 5, badge_y + 2))
 
-        # "PRESS ENTER OR CLICK TO START" button below cards
-        btn_y = cards_y + CARD_H + 12
-        btn_text = small_font.render("PRESS ENTER OR CLICK [1-4] TO START", True, WHITE)
-        btn_w = btn_text.get_width() + 32
-        btn_h = btn_text.get_height() + 12
-        btn_x = cx - btn_w // 2
-        btn_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
-        btn_surf.fill((*ACCENT[:3], 230))
-        screen.blit(btn_surf, (btn_x, btn_y))
-        pygame.draw.rect(screen, WHITE, (btn_x, btn_y, btn_w, btn_h), width=1, border_radius=8)
-        screen.blit(btn_text, (btn_x + 16, btn_y + 6))
+        btn_y = cards_y + _CS_CARD_H + 12
+        btn_x = cx - _cs_btn_w // 2
+        screen.blit(_cs_btn_surf, (btn_x, btn_y))
+        pygame.draw.rect(screen, WHITE, (btn_x, btn_y, _cs_btn_w, _cs_btn_h), width=1, border_radius=8)
+        screen.blit(_cs_btn_text_surf, (btn_x + 16, btn_y + 6))
 
-        # --- Two mini-panels below the main panel ---
-        MINI_Y = panel_y + PANEL_H + 12
-        MINI_H = HEIGHT - MINI_Y - 10
-        MINI_W = (PANEL_W - 10) // 2  # slight gap between the two
-        LEFT_X = panel_x
-        RIGHT_X = panel_x + MINI_W + 10
+        screen.blit(_cs_how_surf, (_CS_LEFT_X, _CS_MINI_Y))
+        pygame.draw.rect(screen, (*ACCENT[:3], 80), (_CS_LEFT_X, _CS_MINI_Y, _CS_MINI_W, _CS_MINI_H), width=1, border_radius=8)
+        screen.blit(_cs_how_title, (_CS_LEFT_X + 10, _CS_MINI_Y + 8))
+        for bi, bl_surf in enumerate(_CS_BULLET_SURFS):
+            screen.blit(bl_surf, (_CS_LEFT_X + 10, _CS_MINI_Y + 32 + bi * 18))
 
-        # How to Play panel (left)
-        how_surf = pygame.Surface((MINI_W, MINI_H), pygame.SRCALPHA)
-        how_surf.fill((26, 26, 46, 210))
-        screen.blit(how_surf, (LEFT_X, MINI_Y))
-        pygame.draw.rect(screen, (*ACCENT[:3], 80), (LEFT_X, MINI_Y, MINI_W, MINI_H), width=1, border_radius=8)
-        how_title = small_font.render("HOW TO PLAY", True, ACCENT)
-        screen.blit(how_title, (LEFT_X + 10, MINI_Y + 8))
-        bullet_lines = [
-            "Move with Arrow Keys or WASD",
-            "SPACE near a creature to catch it",
-            "Avoid bombs  (-100 pts)",
-            "Fire Drake=50 | Water Sprite=40",
-            "Forest Guardian=60 | Elec. Spark=45",
-            "Shadow Phantom=70",
-        ]
-        for bi, bl in enumerate(bullet_lines):
-            bl_surf = tiny_font.render(f"• {bl}", True, (200, 200, 200))
-            screen.blit(bl_surf, (LEFT_X + 10, MINI_Y + 32 + bi * 18))
-
-        # Top Scores panel (right)
-        hs_surf = pygame.Surface((MINI_W, MINI_H), pygame.SRCALPHA)
-        hs_surf.fill((26, 26, 46, 210))
-        screen.blit(hs_surf, (RIGHT_X, MINI_Y))
-        pygame.draw.rect(screen, (*ACCENT[:3], 80), (RIGHT_X, MINI_Y, MINI_W, MINI_H), width=1, border_radius=8)
-        hs_title_surf = small_font.render("TOP SCORES", True, ACCENT)
-        screen.blit(hs_title_surf, (RIGHT_X + 10, MINI_Y + 8))
+        screen.blit(_cs_hs_surf, (_CS_RIGHT_X, _CS_MINI_Y))
+        pygame.draw.rect(screen, (*ACCENT[:3], 80), (_CS_RIGHT_X, _CS_MINI_Y, _CS_MINI_W, _CS_MINI_H), width=1, border_radius=8)
+        screen.blit(_cs_hs_title_txt, (_CS_RIGHT_X + 10, _CS_MINI_Y + 8))
         if high_scores:
             for i, (n, s) in enumerate(high_scores):
                 rank_color = SCORE_GOLD if i == 0 else (200, 200, 200)
                 hs_line = small_font.render(f"{i + 1}.  {n}  —  {s}", True, rank_color)
-                screen.blit(hs_line, (RIGHT_X + 10, MINI_Y + 36 + i * 26))
+                screen.blit(hs_line, (_CS_RIGHT_X + 10, _CS_MINI_Y + 36 + i * 26))
         else:
             no_scores = tiny_font.render("No scores yet — be the first!", True, (150, 150, 150))
-            screen.blit(no_scores, (RIGHT_X + 10, MINI_Y + 38))
+            screen.blit(no_scores, (_CS_RIGHT_X + 10, _CS_MINI_Y + 38))
 
-    else:
-        # Playing or game_over: draw the world then game objects
+    elif game_state == "game_over":
+        # HIGH-05: own branch — no world draw wasted before fill(BLACK)
+        screen.fill(BLACK)
+        go_y = 100
+
+        if is_new_high_score:
+            glow_str = "★ NEW HIGH SCORE! ★"
+            glow_surf = hs_indicator_font.render(glow_str, True, (180, 140, 0))
+            screen.blit(glow_surf, (WIDTH // 2 - glow_surf.get_width() // 2 + 2, go_y - 36 + 2))
+            gold_surf = hs_indicator_font.render(glow_str, True, SCORE_GOLD)
+            screen.blit(gold_surf, (WIDTH // 2 - gold_surf.get_width() // 2, go_y - 36))
+
+        go = font.render("TIME'S UP - GAME OVER", True, (255, 60, 60))
+        screen.blit(go, (WIDTH // 2 - go.get_width() // 2, go_y))
+        final = font.render(f"Final Score: {score}", True, WHITE)
+        screen.blit(final, (WIDTH // 2 - final.get_width() // 2, go_y + 60))
+
+        caught_count = len(inventory)
+        count_surf = small_font.render(f"Creatures Caught: {caught_count}", True, (200, 200, 200))
+        screen.blit(count_surf, (WIDTH // 2 - count_surf.get_width() // 2, go_y + 110))
+
+        if caught_count > 0:
+            visible = inventory[:15]
+            spacing = 28
+            circle_radius = 10
+            row_width = len(visible) * spacing - (spacing - circle_radius * 2)
+            row_start_x = WIDTH // 2 - row_width // 2 + circle_radius
+            row_y = go_y + 148
+            for idx, creature_name in enumerate(visible):
+                color = CREATURE_COLORS.get(creature_name, (200, 200, 200))
+                pygame.draw.circle(screen, color, (row_start_x + idx * spacing, row_y), circle_radius)
+
+        prompt_y = go_y + 185
+        if score_saved:
+            prompt = small_font.render("Score saved! Press R to play again", True, WHITE)
+        else:
+            prompt = small_font.render(f"Enter name (5 chars): {name_input}_", True, WHITE)
+        screen.blit(prompt, (WIDTH // 2 - prompt.get_width() // 2, prompt_y))
+
+        if high_scores:
+            hs_title = small_font.render("TOP 5 HIGH SCORES", True, WHITE)
+            screen.blit(hs_title, (WIDTH // 2 - hs_title.get_width() // 2, go_y + 230))
+            for i, (n, s) in enumerate(high_scores):
+                line = small_font.render(f"{i+1}. {n} — {s}", True, WHITE)
+                screen.blit(line, (WIDTH // 2 - line.get_width() // 2, go_y + 260 + i * 30))
+
+    else:  # playing
         draw_world()
 
         for rd in _rock_data:
             rx, ry = rd["pos"]
             screen.blit(_shad_rock, (rx - 22, ry + 15))
-            # Dark outline
-            pygame.draw.circle(screen, (138, 102, 60), (rx, ry), 19)
-            # Warm sandstone base
+            pygame.draw.circle(screen, (138, 102, 60),  (rx, ry), 19)
             pygame.draw.circle(screen, (194, 154, 107), (rx, ry), 17)
-            # Warm highlight
             pygame.draw.circle(screen, (222, 188, 144), (rx - 5, ry - 5), 6)
-            # Crack details
             for (sx, sy), (ex, ey) in rd["cracks"]:
                 pygame.draw.line(screen, (108, 72, 36), (sx, sy), (ex, ey), 1)
 
         _bt = pygame.time.get_ticks() / 1000.0
         for bx, by in bombs:
             screen.blit(_shad_bomb, (bx - 25, by + 16))
-            # Layered bomb body
-            pygame.draw.circle(screen, (50, 50, 50), (bx, by), 20)       # outline
-            pygame.draw.circle(screen, (20, 20, 20), (bx, by), 18)       # body
-            pygame.draw.circle(screen, (80, 80, 80), (bx - 6, by - 6), 5) # highlight
-            # Fuse cord (two-segment S-curve)
+            pygame.draw.circle(screen, (50, 50, 50), (bx, by), 20)
+            pygame.draw.circle(screen, (20, 20, 20), (bx, by), 18)
+            pygame.draw.circle(screen, (80, 80, 80), (bx - 6, by - 6), 5)
             pygame.draw.line(screen, (110, 75, 35), (bx + 6, by - 16), (bx + 12, by - 22), 2)
             pygame.draw.line(screen, (110, 75, 35), (bx + 12, by - 22), (bx + 9, by - 29), 2)
-            # Animated spark at fuse tip
             _flicker = math.sin(_bt * 14)
             _sx = bx + 9 + int(_flicker * 1.5)
             _sy = by - 29 - int(abs(math.cos(_bt * 10)) * 2)
-            pygame.draw.circle(screen, (255, 140, 0), (_sx, _sy), 5)     # orange glow
+            pygame.draw.circle(screen, (255, 140, 0), (_sx, _sy), 5)
             _core = (255, 255, 180) if int(_bt * 10) % 2 == 0 else (255, 220, 60)
-            pygame.draw.circle(screen, _core, (_sx, _sy), 2)             # bright core
+            pygame.draw.circle(screen, _core, (_sx, _sy), 2)
 
         _t = pygame.time.get_ticks() / 1000.0
         for c in creatures:
             bob = int(math.sin(_t * 2.0 + c.get("phase", 0)) * 5)
             c["_bob"] = bob
-            # Shadow and type circle stay on the ground (no bob)
             screen.blit(_shad_creature, (c["x"] - 25, c["y"] + 24))
             screen.blit(_type_circles[c["type"]["name"]], (c["x"] - 28, c["y"] + 14))
-            # Shadow Phantom ethereal glow (bobs with sprite)
             if c["type"]["name"] == "Shadow Phantom":
                 _glow_r = 34 + int(math.sin(_t * 3.0 + c.get("phase", 0)) * 5)
-                _glow_surf = pygame.Surface((_glow_r * 2, _glow_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(_glow_surf, (156, 39, 176, 90), (_glow_r, _glow_r), _glow_r)
-                screen.blit(_glow_surf, (c["x"] - _glow_r, c["y"] + bob - _glow_r))
-            # Sprite bobs
+                _phantom_glow_surf.fill((0, 0, 0, 0))
+                pygame.draw.circle(_phantom_glow_surf, (156, 39, 176, 90), (40, 40), _glow_r)
+                screen.blit(_phantom_glow_surf, (c["x"] - 40, c["y"] + bob - 40))
             img = creature_images.get(c["type"]["image_key"])
             if img:
                 screen.blit(img, (c["x"] - 30, c["y"] - 30 + bob))
             else:
                 pygame.draw.circle(screen, WHITE, (c["x"], c["y"] + bob), 25)
 
-        # --- Priority #6: Proximity creature label ---
-        # Find the single closest creature within catch radius (55px)
-        if game_state == "playing":
-            closest_c = None
-            closest_dist = 55  # only show within catch radius
-            for c in creatures:
-                d = math.hypot(player_x - c["x"], player_y - c["y"])
-                if d < closest_dist:
-                    closest_dist = d
-                    closest_c = c
-            if closest_c is not None:
-                label_str = f"{closest_c['type']['name']}  —  {closest_c['type']['points']} pts  |  SPACE to catch"
-                label_text = prox_font.render(label_str, True, WHITE)
-                lw = label_text.get_width()
-                lh = label_text.get_height()
-                pad_x, pad_y = 10, 5
-                lbl_x = closest_c["x"] - lw // 2 - pad_x
-                lbl_y = closest_c["y"] + closest_c.get("_bob", 0) - 50 - lh - pad_y * 2
+        # Proximity creature label
+        closest_c, closest_dist = None, 55
+        for c in creatures:
+            d = math.hypot(player_x - c["x"], player_y - c["y"])
+            if d < closest_dist:
+                closest_dist = d
+                closest_c = c
+        if closest_c is not None:
+            label_str = f"{closest_c['type']['name']}  —  {closest_c['type']['points']} pts  |  SPACE to catch"
+            label_text = prox_font.render(label_str, True, WHITE)
+            lw, lh = label_text.get_width(), label_text.get_height()
+            pad_x, pad_y = 10, 5
+            lbl_x = closest_c["x"] - lw // 2 - pad_x
+            lbl_y = max(4, closest_c["y"] + closest_c.get("_bob", 0) - 50 - lh - pad_y * 2)  # HIGH-06
+            pill_surf = pygame.Surface((lw + pad_x * 2, lh + pad_y * 2), pygame.SRCALPHA)
+            pill_surf.fill((0, 0, 0, 210))
+            screen.blit(pill_surf, (lbl_x, lbl_y))
+            border_s = pygame.Surface((lw + pad_x * 2, lh + pad_y * 2), pygame.SRCALPHA)
+            pygame.draw.rect(border_s, (255, 215, 0, 128), (0, 0, lw + pad_x * 2, lh + pad_y * 2), width=1, border_radius=6)
+            screen.blit(border_s, (lbl_x, lbl_y))
+            screen.blit(label_text, (lbl_x + pad_x, lbl_y + pad_y))
 
-                # Dark pill background
-                pill_surf = pygame.Surface((lw + pad_x * 2, lh + pad_y * 2), pygame.SRCALPHA)
-                pill_surf.fill((0, 0, 0, 210))
-                screen.blit(pill_surf, (lbl_x, lbl_y))
+        # Catch radius indicator
+        pygame.draw.circle(screen, (200, 200, 200), (player_x, player_y), 55, 1)
 
-                # Gold border
-                border_s = pygame.Surface((lw + pad_x * 2, lh + pad_y * 2), pygame.SRCALPHA)
-                pygame.draw.rect(border_s, (255, 215, 0, 128),
-                                 (0, 0, lw + pad_x * 2, lh + pad_y * 2), width=1, border_radius=6)
-                screen.blit(border_s, (lbl_x, lbl_y))
-
-                screen.blit(label_text, (lbl_x + pad_x, lbl_y + pad_y))
-
-        # Catch radius indicator drawn before player sprite so player appears on top
-        if game_state == "playing":
-            pygame.draw.circle(screen, (200, 200, 200), (player_x, player_y), 55, 1)
-
-        # Trainer pulse ring (playing state only)
-        if game_state == "playing":
-            _pt = pygame.time.get_ticks() / 1000.0
-            _pulse = (_pt * 1.2) % 1.0
-            _ring_r = 30 + int(_pulse * 28)
-            _ring_alpha = int(210 * (1 - _pulse))
-            _ring_surf = pygame.Surface((_ring_r * 2 + 4, _ring_r * 2 + 4), pygame.SRCALPHA)
-            pygame.draw.circle(_ring_surf, (*ACCENT, _ring_alpha), (_ring_r + 2, _ring_r + 2), _ring_r, 2)
-            screen.blit(_ring_surf, (player_x - _ring_r - 2, player_y - 10 - _ring_r - 2))
+        # Trainer pulse ring
+        _pt = pygame.time.get_ticks() / 1000.0
+        _pulse = (_pt * 1.2) % 1.0
+        _ring_r = 30 + int(_pulse * 28)
+        _ring_alpha = int(210 * (1 - _pulse))
+        _ring_surf = pygame.Surface((_ring_r * 2 + 4, _ring_r * 2 + 4), pygame.SRCALPHA)
+        pygame.draw.circle(_ring_surf, (*ACCENT, _ring_alpha), (_ring_r + 2, _ring_r + 2), _ring_r, 2)
+        screen.blit(_ring_surf, (player_x - _ring_r - 2, player_y - 10 - _ring_r - 2))
 
         screen.blit(_shad_trainer, (player_x - 30, player_y + 40))
         if trainer_images[selected_char]:
@@ -648,91 +669,30 @@ while running:
         for ft in float_texts:
             progress = 1.0 - ft["timer"]
             draw_y = int(ft["y"] - progress * 60)
-            alpha = int(ft["timer"] / 1.0 * 255)
+            alpha = int(ft["timer"] * 255)
             text_surf = font.render(ft["text"], True, ft["color"])
             alpha_surf = pygame.Surface(text_surf.get_size(), pygame.SRCALPHA)
             alpha_surf.blit(text_surf, (0, 0))
             alpha_surf.set_alpha(alpha)
             screen.blit(alpha_surf, (int(ft["x"]) - text_surf.get_width() // 2, draw_y))
 
-        if game_state == "playing":
-            # --- Score pill (top-left) ---
-            score_pill_rect = pygame.Rect(15, 12, 210, 44)
-            pygame.draw.rect(screen, PANEL_BG, score_pill_rect, border_radius=22)
-            pygame.draw.rect(screen, ACCENT, score_pill_rect, width=2, border_radius=22)
-            score_text = font.render(f"Score: {score}", True, SCORE_GOLD)
-            screen.blit(score_text, (score_pill_rect.x + 16, score_pill_rect.y + 6))
+        # Score pill (top-left)
+        score_pill_rect = pygame.Rect(15, 12, 210, 44)
+        pygame.draw.rect(screen, PANEL_BG, score_pill_rect, border_radius=22)
+        pygame.draw.rect(screen, ACCENT,   score_pill_rect, width=2, border_radius=22)
+        screen.blit(font.render(f"Score: {score}", True, SCORE_GOLD), (score_pill_rect.x + 16, score_pill_rect.y + 6))
 
-            # --- Timer pill (top-right) ---
-            elapsed = (pygame.time.get_ticks() - start_ticks) / 1000
-            time_left = max(0, int(game_time - elapsed))
-            is_urgent = time_left <= 10
-            timer_bg_color = (80, 20, 20) if is_urgent else PANEL_BG
-            timer_border_color = URGENT_RED if is_urgent else ACCENT
-            timer_text_color = URGENT_RED if is_urgent else WHITE
-            timer_pill_rect = pygame.Rect(WIDTH - 195, 12, 180, 44)
-            pygame.draw.rect(screen, timer_bg_color, timer_pill_rect, border_radius=22)
-            pygame.draw.rect(screen, timer_border_color, timer_pill_rect, width=2, border_radius=22)
-            time_text = font.render(f"Time: {time_left}s", True, timer_text_color)
-            screen.blit(time_text, (timer_pill_rect.x + 14, timer_pill_rect.y + 6))
-
-        if game_state == "game_over":
-            screen.fill(BLACK)
-
-            go_y = 100
-
-            # New high score indicator drawn above TIME'S UP title
-            if is_new_high_score:
-                glow_str = "★ NEW HIGH SCORE! ★"
-                glow_surf = hs_indicator_font.render(glow_str, True, (180, 140, 0))
-                glow_w = glow_surf.get_width()
-                screen.blit(glow_surf, (WIDTH // 2 - glow_w // 2 + 2, go_y - 36 + 2))
-                gold_surf = hs_indicator_font.render(glow_str, True, SCORE_GOLD)
-                gold_w = gold_surf.get_width()
-                screen.blit(gold_surf, (WIDTH // 2 - gold_w // 2, go_y - 36))
-
-            go = font.render("TIME'S UP - GAME OVER", True, (255, 60, 60))
-            screen.blit(go, (WIDTH // 2 - go.get_width() // 2, go_y))
-
-            final = font.render(f"Final Score: {score}", True, WHITE)
-            screen.blit(final, (WIDTH // 2 - final.get_width() // 2, go_y + 60))
-
-            # Creatures caught recap
-            caught_count = len(inventory)
-            count_surf = small_font.render(f"Creatures Caught: {caught_count}", True, (200, 200, 200))
-            screen.blit(count_surf, (WIDTH // 2 - count_surf.get_width() // 2, go_y + 110))
-
-            if caught_count > 0:
-                visible = inventory[:15]
-                circle_diameter = 20
-                circle_radius = circle_diameter // 2
-                spacing = 28
-                row_width = len(visible) * spacing - (spacing - circle_diameter)
-                row_start_x = WIDTH // 2 - row_width // 2 + circle_radius
-                row_y = go_y + 148
-                for idx, creature_name in enumerate(visible):
-                    cx_pos = row_start_x + idx * spacing
-                    color = CREATURE_COLORS.get(creature_name, (200, 200, 200))
-                    pygame.draw.circle(screen, color, (cx_pos, row_y), circle_radius)
-
-            # Name input / score saved prompt
-            prompt_y = go_y + 185
-            if score_saved:
-                prompt = small_font.render("Score saved! Press R to play again", True, WHITE)
-                screen.blit(prompt, (WIDTH // 2 - prompt.get_width() // 2, prompt_y))
-            else:
-                prompt_str = f"Enter name (5 chars): {name_input}_"
-                prompt = small_font.render(prompt_str, True, WHITE)
-                screen.blit(prompt, (WIDTH // 2 - prompt.get_width() // 2, prompt_y))
-
-            hs_title = small_font.render("TOP 5 HIGH SCORES", True, WHITE)
-            screen.blit(hs_title, (WIDTH // 2 - hs_title.get_width() // 2, go_y + 230))
-            for i, (n, s) in enumerate(high_scores):
-                line = small_font.render(f"{i+1}. {n} — {s}", True, WHITE)
-                screen.blit(line, (WIDTH // 2 - line.get_width() // 2, go_y + 260 + i * 30))
+        # Timer pill (top-right)
+        elapsed = (pygame.time.get_ticks() - start_ticks) / 1000
+        time_left = max(0, int(game_time - elapsed))
+        is_urgent = time_left <= 10
+        timer_pill_rect = pygame.Rect(WIDTH - 195, 12, 180, 44)
+        pygame.draw.rect(screen, (80, 20, 20) if is_urgent else PANEL_BG,  timer_pill_rect, border_radius=22)
+        pygame.draw.rect(screen, URGENT_RED  if is_urgent else ACCENT,     timer_pill_rect, width=2, border_radius=22)
+        screen.blit(font.render(f"Time: {time_left}s", True, URGENT_RED if is_urgent else WHITE),
+                    (timer_pill_rect.x + 14, timer_pill_rect.y + 6))
 
     pygame.display.flip()
-    dt = clock.tick(60) / 1000.0
 
 pygame.quit()
 sys.exit()
