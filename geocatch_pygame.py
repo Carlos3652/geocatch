@@ -42,6 +42,7 @@ for i in range(1, 5):
 selected_char = 0
 game_state = "character_select"
 trainer_card_rects = []
+_cs_btn_rect = pygame.Rect(0, 0, 0, 0)  # LOW-01: clickable start button
 
 player_x = WIDTH // 2
 player_y = HEIGHT // 2
@@ -57,6 +58,7 @@ bomb_cooldown = 0          # HIGH-03: frames remaining before next bomb hit regi
 dt = 1 / 60                # CRIT-01: valid delta on the very first frame
 is_new_high_score = False
 score_saved = False
+_go_cache = None  # MED-13: cached game_over static surfaces
 
 # High scores — CRIT-03: hardened parser
 high_scores = []
@@ -84,16 +86,19 @@ def save_high_score(name, sc):
         for n, s in high_scores:
             f.write(f"{n} {s}\n")
 
-# Monsters
+# Monsters — HIGH-08: load each image independently so one missing file doesn't kill all
 creature_images = {}
-try:
-    creature_images["fire_drake"]      = pygame.transform.smoothscale(pygame.image.load("fire_drake.png"),      (60, 60))
-    creature_images["water_sprite"]    = pygame.transform.smoothscale(pygame.image.load("water_sprite.png"),    (60, 60))
-    creature_images["forest_guardian"] = pygame.transform.smoothscale(pygame.image.load("forest_guardian.png"), (60, 60))
-    creature_images["electric_spark"]  = pygame.transform.smoothscale(pygame.image.load("electric_spark.png"),  (60, 60))
-    creature_images["shadow_phantom"]  = pygame.transform.smoothscale(pygame.image.load("shadow_phantom.png"),  (60, 60))
-except (FileNotFoundError, pygame.error):
-    pass
+for _ckey, _cfile in [
+    ("fire_drake", "fire_drake.png"),
+    ("water_sprite", "water_sprite.png"),
+    ("forest_guardian", "forest_guardian.png"),
+    ("electric_spark", "electric_spark.png"),
+    ("shadow_phantom", "shadow_phantom.png"),
+]:
+    try:
+        creature_images[_ckey] = pygame.transform.smoothscale(pygame.image.load(_cfile), (60, 60))
+    except (FileNotFoundError, pygame.error):
+        pass
 
 CREATURE_TYPES = [
     {"name": "Fire Drake",       "image_key": "fire_drake",      "points": 50},
@@ -133,6 +138,13 @@ for _ct in CREATURE_TYPES:
 
 # Pre-allocated Shadow Phantom glow surface (fixed max size, cleared+redrawn each frame)
 _phantom_glow_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
+
+# MED-09: Pre-allocated pulse ring surface (max ring radius 58 → 120x120)
+_pulse_ring_surf = pygame.Surface((124, 124), pygame.SRCALPHA)
+
+# MED-10: Pre-allocated proximity label surfaces (max reasonable label size)
+_prox_pill_surf = pygame.Surface((500, 40), pygame.SRCALPHA)
+_prox_border_surf = pygame.Surface((500, 40), pygame.SRCALPHA)
 
 creatures = []
 rocks = [(200, 200), (700, 150), (300, 500), (800, 400), (150, 550), (650, 550)]
@@ -284,8 +296,9 @@ def spawn_creatures(n=8):
 
 def reset_game():
     global score, inventory, player_x, player_y, start_ticks, creatures, bombs, float_texts
-    global bomb_flash_frames, bomb_cooldown, score_saved, is_new_high_score, name_input
+    global bomb_flash_frames, bomb_cooldown, score_saved, is_new_high_score, name_input, game_time
     score = 0
+    game_time = 60  # LOW-04: ensure game_time is reset
     inventory = []
     player_x = WIDTH // 2
     player_y = HEIGHT // 2
@@ -394,10 +407,15 @@ while running:
                     game_state = "playing"
                     reset_game()
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                for i, rect in enumerate(trainer_card_rects):
-                    if rect.collidepoint(event.pos):
-                        selected_char = i
-                        break
+                # LOW-01: click the start button to begin
+                if _cs_btn_rect.collidepoint(event.pos):
+                    game_state = "playing"
+                    reset_game()
+                else:
+                    for i, rect in enumerate(trainer_card_rects):
+                        if rect.collidepoint(event.pos):
+                            selected_char = i
+                            break
 
         elif game_state == "playing":
             # HIGH-02: single KEYDOWN instead of held-key poll — prevents multi-catch per hold
@@ -441,7 +459,7 @@ while running:
             player_y = new_y
 
         player_x = max(40, min(WIDTH - 40, player_x))
-        player_y = max(40, min(HEIGHT - 40, player_y))
+        player_y = max(50, min(HEIGHT - 40, player_y))  # LOW-02: 50 prevents sprite clipping at top
 
         # HIGH-03: bomb collision with 1.5-second cooldown (90 frames)
         if bomb_cooldown > 0:
@@ -452,7 +470,15 @@ while running:
                 score = max(0, score - 100)
                 float_texts.append(_make_float_text("\u2212100", bx, by, (255, 82, 82)))
                 bomb_flash_frames = 3
-                bombs[i] = (random.randint(100, WIDTH - 100), random.randint(100, HEIGHT - 100))
+                # HIGH-09: validate respawn — avoid lakes, rocks, and player
+                for _ba in range(10):
+                    _bx = random.randint(100, WIDTH - 100)
+                    _by = random.randint(100, HEIGHT - 100)
+                    if (not in_lake(_bx, _by)
+                            and not any(math.hypot(_bx - rx, _by - ry) < 55 for rx, ry in rocks)
+                            and math.hypot(_bx - player_x, _by - player_y) > 80):
+                        break
+                bombs[i] = (_bx, _by)
                 bomb_cooldown = 90
                 break  # one bomb per cooldown window
 
@@ -466,8 +492,19 @@ while running:
         elapsed = (pygame.time.get_ticks() - start_ticks) / 1000
         time_left = max(0, int(game_time - elapsed))
         if time_left <= 0:
-            is_new_high_score = (len(high_scores) < 5 or score > min(s for _, s in high_scores)) if high_scores else True
+            # MED-11: don't show high score banner for score of 0
+            is_new_high_score = score > 0 and ((len(high_scores) < 5 or score > min(s for _, s in high_scores)) if high_scores else True)
             game_state = "game_over"
+            # MED-13: pre-render static game_over surfaces once
+            _go_cache = {
+                "go": font.render("TIME'S UP - GAME OVER", True, (255, 60, 60)),
+                "final": font.render(f"Final Score: {score}", True, WHITE),
+                "count": small_font.render(f"Creatures Caught: {len(inventory)}", True, (200, 200, 200)),
+            }
+            if is_new_high_score:
+                glow_str = "★ NEW HIGH SCORE! ★"
+                _go_cache["glow"] = hs_indicator_font.render(glow_str, True, (180, 140, 0))
+                _go_cache["gold"] = hs_indicator_font.render(glow_str, True, SCORE_GOLD)
 
     # ── DRAW ──────────────────────────────────────────────────────────────────
     if game_state == "character_select":
@@ -522,6 +559,7 @@ while running:
 
         btn_y = cards_y + _CS_CARD_H + 12
         btn_x = cx - _cs_btn_w // 2
+        _cs_btn_rect.update(btn_x, btn_y, _cs_btn_w, _cs_btn_h)  # LOW-01
         screen.blit(_cs_btn_surf, (btn_x, btn_y))
         pygame.draw.rect(screen, WHITE, (btn_x, btn_y, _cs_btn_w, _cs_btn_h), width=1, border_radius=8)
         screen.blit(_cs_btn_text_surf, (btn_x + 16, btn_y + 6))
@@ -549,21 +587,16 @@ while running:
         screen.fill(BLACK)
         go_y = 100
 
-        if is_new_high_score:
-            glow_str = "★ NEW HIGH SCORE! ★"
-            glow_surf = hs_indicator_font.render(glow_str, True, (180, 140, 0))
-            screen.blit(glow_surf, (WIDTH // 2 - glow_surf.get_width() // 2 + 2, go_y - 36 + 2))
-            gold_surf = hs_indicator_font.render(glow_str, True, SCORE_GOLD)
-            screen.blit(gold_surf, (WIDTH // 2 - gold_surf.get_width() // 2, go_y - 36))
+        # MED-13: use pre-rendered cached surfaces
+        if is_new_high_score and _go_cache:
+            screen.blit(_go_cache["glow"], (WIDTH // 2 - _go_cache["glow"].get_width() // 2 + 2, go_y - 36 + 2))
+            screen.blit(_go_cache["gold"], (WIDTH // 2 - _go_cache["gold"].get_width() // 2, go_y - 36))
 
-        go = font.render("TIME'S UP - GAME OVER", True, (255, 60, 60))
-        screen.blit(go, (WIDTH // 2 - go.get_width() // 2, go_y))
-        final = font.render(f"Final Score: {score}", True, WHITE)
-        screen.blit(final, (WIDTH // 2 - final.get_width() // 2, go_y + 60))
+        screen.blit(_go_cache["go"], (WIDTH // 2 - _go_cache["go"].get_width() // 2, go_y))
+        screen.blit(_go_cache["final"], (WIDTH // 2 - _go_cache["final"].get_width() // 2, go_y + 60))
+        screen.blit(_go_cache["count"], (WIDTH // 2 - _go_cache["count"].get_width() // 2, go_y + 110))
 
         caught_count = len(inventory)
-        count_surf = small_font.render(f"Creatures Caught: {caught_count}", True, (200, 200, 200))
-        screen.blit(count_surf, (WIDTH // 2 - count_surf.get_width() // 2, go_y + 110))
 
         if caught_count > 0:
             visible = inventory[:15]
@@ -578,9 +611,11 @@ while running:
 
         prompt_y = go_y + 185
         if score_saved:
-            prompt = small_font.render("Score saved! Press R to play again", True, WHITE)
+            prompt = small_font.render("Score saved!  Press  R  to return to menu", True, WHITE)  # LOW-03
         else:
-            prompt = small_font.render(f"Enter name (5 chars): {name_input}_", True, WHITE)
+            # MED-12: hide cursor when at max length
+            cursor = "" if len(name_input) >= 5 else "_"
+            prompt = small_font.render(f"Enter name (5 chars): {name_input}{cursor}", True, WHITE)
         screen.blit(prompt, (WIDTH // 2 - prompt.get_width() // 2, prompt_y))
 
         if high_scores:
@@ -647,13 +682,16 @@ while running:
             lw, lh = label_text.get_width(), label_text.get_height()
             pad_x, pad_y = 10, 5
             lbl_x = closest_c["x"] - lw // 2 - pad_x
+            lbl_x = max(4, min(WIDTH - lw - pad_x * 2 - 4, lbl_x))  # HIGH-10: clamp horizontal
             lbl_y = max(4, closest_c["y"] + closest_c.get("_bob", 0) - 50 - lh - pad_y * 2)  # HIGH-06
-            pill_surf = pygame.Surface((lw + pad_x * 2, lh + pad_y * 2), pygame.SRCALPHA)
-            pill_surf.fill((0, 0, 0, 210))
-            screen.blit(pill_surf, (lbl_x, lbl_y))
-            border_s = pygame.Surface((lw + pad_x * 2, lh + pad_y * 2), pygame.SRCALPHA)
-            pygame.draw.rect(border_s, (255, 215, 0, 128), (0, 0, lw + pad_x * 2, lh + pad_y * 2), width=1, border_radius=6)
-            screen.blit(border_s, (lbl_x, lbl_y))
+            # MED-10: reuse pre-allocated surfaces
+            _pw, _ph = lw + pad_x * 2, lh + pad_y * 2
+            _prox_pill_surf.fill((0, 0, 0, 0))
+            pygame.draw.rect(_prox_pill_surf, (0, 0, 0, 210), (0, 0, _pw, _ph))
+            screen.blit(_prox_pill_surf, (lbl_x, lbl_y), area=pygame.Rect(0, 0, _pw, _ph))
+            _prox_border_surf.fill((0, 0, 0, 0))
+            pygame.draw.rect(_prox_border_surf, (255, 215, 0, 128), (0, 0, _pw, _ph), width=1, border_radius=6)
+            screen.blit(_prox_border_surf, (lbl_x, lbl_y), area=pygame.Rect(0, 0, _pw, _ph))
             screen.blit(label_text, (lbl_x + pad_x, lbl_y + pad_y))
 
         # MED-03: correct draw order — shadow → catch radius → pulse ring → sprite
@@ -662,14 +700,14 @@ while running:
         # Catch radius indicator
         pygame.draw.circle(screen, (200, 200, 200), (player_x, player_y), 55, 1)
 
-        # Trainer pulse ring
+        # Trainer pulse ring — MED-09: reuse pre-allocated surface
         _pt = pygame.time.get_ticks() / 1000.0
         _pulse = (_pt * 1.2) % 1.0
         _ring_r = 30 + int(_pulse * 28)
         _ring_alpha = int(210 * (1 - _pulse))
-        _ring_surf = pygame.Surface((_ring_r * 2 + 4, _ring_r * 2 + 4), pygame.SRCALPHA)
-        pygame.draw.circle(_ring_surf, (*ACCENT, _ring_alpha), (_ring_r + 2, _ring_r + 2), _ring_r, 2)
-        screen.blit(_ring_surf, (player_x - _ring_r - 2, player_y - 10 - _ring_r - 2))
+        _pulse_ring_surf.fill((0, 0, 0, 0))
+        pygame.draw.circle(_pulse_ring_surf, (*ACCENT, _ring_alpha), (62, 62), _ring_r, 2)
+        screen.blit(_pulse_ring_surf, (player_x - 62, player_y - 10 - 62))
 
         if trainer_images[selected_char]:
             screen.blit(trainer_images[selected_char], (player_x - 28, player_y - 45))
