@@ -20,6 +20,8 @@ prox_font = pygame.font.SysFont("Arial", 20)
 title_font = pygame.font.SysFont("Arial", 52, bold=True)
 hs_indicator_font = pygame.font.SysFont("Arial", 24, bold=True)
 score_big_font = pygame.font.SysFont("Arial", 72, bold=True)
+tier_font = pygame.font.SysFont("Arial", 40, bold=True)
+nav_font = pygame.font.SysFont("Arial", 18)
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -102,6 +104,8 @@ _go_anim_done = False
 _go_anim_timer = 0.0
 _go_flash_timer = 0.0
 _go_bubbles = []
+_go_fireworks = []  # firework particles for high score
+_go_caught_keys = set()  # image_keys of caught creatures this round
 
 # #3: Catch streak multiplier
 catch_streak = 0
@@ -247,6 +251,41 @@ for _ct in CREATURE_TYPES:
     _init_surf = tiny_font.render(CREATURE_INITIALS[_ct["name"]], True, (60, 60, 60))
     _st_surf.blit(_init_surf, (_st_cx + 10, _st_cy + 10))
     _sticker_surfs[_ct["image_key"]] = _st_surf
+
+# Grey sticker surfaces for uncaught creatures on end screen
+_grey_sticker_surfs = {}
+for _ct in CREATURE_TYPES:
+    _gs = pygame.Surface((_STICKER_SIZE, _STICKER_SIZE), pygame.SRCALPHA)
+    _gs_cx, _gs_cy = _STICKER_SIZE // 2, _STICKER_SIZE // 2
+    pygame.draw.circle(_gs, (60, 60, 70, 180), (_gs_cx, _gs_cy), _STICKER_R)
+    pygame.draw.circle(_gs, (90, 90, 100, 200), (_gs_cx, _gs_cy), _STICKER_R, 3)
+    _q = small_font.render("?", True, (140, 140, 150))
+    _gs.blit(_q, (_gs_cx - _q.get_width() // 2, _gs_cy - _q.get_height() // 2))
+    _grey_sticker_surfs[_ct["image_key"]] = _gs
+
+# Larger sticker surfaces for end screen showcase (1.4x)
+_SHOWCASE_SCALE = 1.4
+_SHOWCASE_SIZE = int(_STICKER_SIZE * _SHOWCASE_SCALE)
+_showcase_stickers = {}
+_showcase_grey = {}
+for _ct in CREATURE_TYPES:
+    _showcase_stickers[_ct["image_key"]] = pygame.transform.smoothscale(
+        _sticker_surfs[_ct["image_key"]], (_SHOWCASE_SIZE, _SHOWCASE_SIZE))
+    _showcase_grey[_ct["image_key"]] = pygame.transform.smoothscale(
+        _grey_sticker_surfs[_ct["image_key"]], (_SHOWCASE_SIZE, _SHOWCASE_SIZE))
+
+# Checkmark surface for caught creatures on end screen
+_check_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
+pygame.draw.line(_check_surf, (80, 220, 80), (3, 10), (8, 16), 3)
+pygame.draw.line(_check_surf, (80, 220, 80), (8, 16), (17, 4), 3)
+
+# Pre-rendered creature name labels for end screen (caught + uncaught variants)
+_showcase_names_caught = {}
+_showcase_names_grey = {}
+for _ct in CREATURE_TYPES:
+    _first = _ct["name"].split()[0]
+    _showcase_names_caught[_ct["image_key"]] = tiny_font.render(_first, True, (180, 180, 190))
+    _showcase_names_grey[_ct["image_key"]] = tiny_font.render(_first, True, (90, 90, 100))
 
 # Pre-created shadow surfaces (allocated once, reused every frame)
 _shad_tree     = pygame.Surface((50, 14), pygame.SRCALPHA)
@@ -712,7 +751,7 @@ while running:
 
         elif game_state == "game_over":
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_r and (score_saved or score == 0):
+                if event.key == pygame.K_r:
                     game_state = "character_select"
                 elif event.key == pygame.K_q:
                     game_state = "character_select"
@@ -724,6 +763,12 @@ while running:
                     save_high_score(name_input, score)
                     name_input = ""
                     score_saved = True
+                    # Rebuild leaderboard cache
+                    if _go_cache is not None:
+                        _go_cache["lb_lines"] = []
+                        for _li, (_ln, _ls) in enumerate(high_scores[:5]):
+                            _lc = (255, 215, 100) if _li == 0 else (200, 200, 210) if _li < 3 else (160, 160, 170)
+                            _go_cache["lb_lines"].append(tiny_font.render(f"{_li+1}. {_ln}  {_ls}", True, _lc))
 
     # ── UPDATE ────────────────────────────────────────────────────────────────
     if game_state == "playing":
@@ -845,50 +890,85 @@ while running:
             if score > _stats.get("trainer_bests", {}).get(_tk, 0):
                 _stats.setdefault("trainer_bests", {})[_tk] = score
             _save_stats()  # #14: save cumulative stats
-            # Init celebration animation
+            # Init Creature Showcase end screen
             _go_anim_score = 0
             _go_anim_done = False
             _go_anim_timer = 0.0
             _go_flash_timer = 0.5 if is_new_high_score else 0.0
-            _bubble_colors = list(CREATURE_COLORS.values())
-            _go_bubbles = []
-            for _ in range(14):
-                _brx = random.randint(10, 22)
-                _bry = random.randint(7, 15)
-                _bcol = random.choice(_bubble_colors)
-                _bsurf = pygame.Surface((50, 50), pygame.SRCALPHA)
-                pygame.draw.ellipse(_bsurf, (*_bcol, 90),
-                                    (25 - _brx, 25 - _bry, _brx * 2, _bry * 2))
-                _go_bubbles.append({
-                    "x": random.randint(20, WIDTH - 20),
-                    "y": HEIGHT + random.randint(10, 80),
-                    "speed": random.randint(30, 80),
-                    "_surf": _bsurf,
-                })
+            # Track which creature types were caught
+            _go_caught_keys = set()
+            for cname in inventory:
+                for ct in CREATURE_TYPES:
+                    if ct["name"] == cname:
+                        _go_caught_keys.add(ct["image_key"])
+            # Tier message based on unique types caught
+            _unique_caught = len(_go_caught_keys)
+            if _unique_caught >= 5:
+                _tier_msg, _tier_color = "LEGENDARY EXPLORER!", (255, 215, 0)
+            elif _unique_caught >= 4:
+                _tier_msg, _tier_color = "AMAZING RUN!", (100, 220, 255)
+            elif _unique_caught >= 2:
+                _tier_msg, _tier_color = "GREAT JOB!", (120, 230, 120)
+            else:
+                _tier_msg, _tier_color = "NICE TRY!", (200, 200, 210)
+            # Fireworks particles (high score only)
+            _go_fireworks = []
+            if is_new_high_score:
+                for _ in range(30):
+                    _fw_color = random.choice(list(CREATURE_COLORS.values()))
+                    _go_fireworks.append({
+                        "x": random.randint(50, WIDTH - 50),
+                        "y": random.randint(30, HEIGHT // 2),
+                        "vx": random.uniform(-60, 60),
+                        "vy": random.uniform(-80, 20),
+                        "life": random.uniform(1.5, 3.0),
+                        "max_life": 0.0,
+                        "color": _fw_color,
+                        "r": random.randint(2, 5),
+                    })
+                    _go_fireworks[-1]["max_life"] = _go_fireworks[-1]["life"]
             _go_cache = {
-                "go": font.render("TIME'S UP - GAME OVER", True, (255, 60, 60)),
-                "final": font.render(f"Final Score: {score}", True, WHITE),
-                "count": small_font.render(f"Creatures Caught: {len(inventory)}", True, (200, 200, 200)),
+                "tier": tier_font.render(_tier_msg, True, _tier_color),
+                "tier_shadow": tier_font.render(_tier_msg, True, (0, 0, 0)),
+                "count": small_font.render(f"Caught {len(inventory)} creature{'s' if len(inventory) != 1 else ''} ({_unique_caught}/5 types)", True, (200, 200, 210)),
+                "nav_r": nav_font.render("[R] Play Again", True, (180, 180, 180)),
+                "nav_q": nav_font.render("[Q] Menu", True, (180, 180, 180)),
             }
             if is_new_high_score:
-                glow_str = "NEW HIGH SCORE!"
-                _go_cache["glow"] = hs_indicator_font.render(glow_str, True, (180, 140, 0))
-                _go_cache["gold"] = hs_indicator_font.render(glow_str, True, SCORE_GOLD)
+                _go_cache["hs"] = hs_indicator_font.render("NEW HIGH SCORE!", True, SCORE_GOLD)
+                _go_cache["hs_glow"] = hs_indicator_font.render("NEW HIGH SCORE!", True, (180, 140, 0))
+            # Cache stats text
+            _tk = str(selected_char)
+            _pb = _stats.get("trainer_bests", {}).get(_tk, 0)
+            _go_cache["pb"] = tiny_font.render(f"Personal best: {_pb}", True, (150, 150, 160))
+            _total_all = sum(_stats.get("total_catches", {}).values())
+            _go_cache["at"] = tiny_font.render(f"All-time catches: {_total_all}", True, (130, 130, 145))
+            # Cache leaderboard lines
+            _go_cache["lb_title"] = tiny_font.render("TOP 5 HIGH SCORES", True, SCORE_GOLD)
+            _go_cache["lb_lines"] = []
+            for _li, (_ln, _ls) in enumerate(high_scores[:5]):
+                _lm = f"{_li+1}."
+                _lc = (255, 215, 100) if _li == 0 else (200, 200, 210) if _li < 3 else (160, 160, 170)
+                _go_cache["lb_lines"].append(tiny_font.render(f"{_lm} {_ln}  {_ls}", True, _lc))
 
     elif game_state == "game_over":
         if not _go_anim_done:
             _go_anim_timer += dt
-            _go_anim_score = min(score, int(_go_anim_timer * 200))
+            # Cap count-up at ~2 seconds max
+            _speed = max(200, score / 2.0) if score > 0 else 200
+            _go_anim_score = min(score, int(_go_anim_timer * _speed))
             if _go_anim_score >= score:
                 _go_anim_score = score
                 _go_anim_done = True
         if _go_flash_timer > 0:
             _go_flash_timer = max(0, _go_flash_timer - dt)
-        for b in _go_bubbles:
-            b["y"] -= b["speed"] * dt
-            if b["y"] < -30:
-                b["y"] = HEIGHT + random.randint(10, 60)
-                b["x"] = random.randint(20, WIDTH - 20)
+        # Update firework particles
+        for fw in _go_fireworks:
+            fw["x"] += fw["vx"] * dt
+            fw["y"] += fw["vy"] * dt
+            fw["vy"] += 30 * dt  # gravity
+            fw["life"] -= dt
+        _go_fireworks = [fw for fw in _go_fireworks if fw["life"] > 0]
 
     # ── DRAW ──────────────────────────────────────────────────────────────────
     if game_state == "character_select":
@@ -979,92 +1059,159 @@ while running:
             screen.blit(_cs_popup_scores, (px, py))
 
     elif game_state == "game_over":
-        # Celebration Mode background
-        screen.fill((12, 12, 24))
         _ticks = pygame.time.get_ticks() / 1000.0
-        _pulse_alpha = int(5 + 10 * abs(math.sin(_ticks * 0.8)))
+        # Background — dark navy with subtle gradient feel
+        screen.fill((14, 16, 32))
+        # Subtle animated top gradient band
+        _pulse_alpha = int(8 + 6 * abs(math.sin(_ticks * 0.6)))
         _go_bg_pulse_surf.fill((0, 0, 0, 0))
-        _go_bg_pulse_surf.fill((20, 20, 40, _pulse_alpha))
+        _go_bg_pulse_surf.fill((25, 30, 55, _pulse_alpha))
         screen.blit(_go_bg_pulse_surf, (0, 0))
 
-        for b in _go_bubbles:
-            screen.blit(b["_surf"], (int(b["x"]) - 25, int(b["y"]) - 25))
-
+        # Orange flash on high score
         if _go_flash_timer > 0:
             _go_flash_surf.set_alpha(int((_go_flash_timer / 0.5) * 80))
             screen.blit(_go_flash_surf, (0, 0))
 
+        # Firework particles (high score only)
+        for fw in _go_fireworks:
+            _fw_alpha = max(0, min(255, int(255 * fw["life"] / fw["max_life"])))
+            pygame.draw.circle(screen, (*fw["color"], ), (int(fw["x"]), int(fw["y"])), fw["r"])
+            if _fw_alpha < 200:
+                # Trail dot
+                pygame.draw.circle(screen, (*fw["color"],), (int(fw["x"] - fw["vx"] * 0.02), int(fw["y"] - fw["vy"] * 0.02)), max(1, fw["r"] - 1))
+
         cx = WIDTH // 2
-        go_y = 60
+        go_y = 20
 
-        if is_new_high_score and _go_cache:
-            screen.blit(_go_cache["glow"], (cx - _go_cache["glow"].get_width() // 2 + 2, go_y - 36 + 2))
-            screen.blit(_go_cache["gold"], (cx - _go_cache["gold"].get_width() // 2, go_y - 36))
-
+        # ── Tier message (top) ──
         if _go_cache:
-            screen.blit(_go_cache["go"], (cx - _go_cache["go"].get_width() // 2, go_y))
+            _tier_s = _go_cache["tier_shadow"]
+            _tier_t = _go_cache["tier"]
+            screen.blit(_tier_s, (cx - _tier_s.get_width() // 2 + 2, go_y + 2))
+            screen.blit(_tier_t, (cx - _tier_t.get_width() // 2, go_y))
 
-        # Cache score text after animation completes to avoid per-frame render
+        # ── NEW HIGH SCORE banner ──
+        if is_new_high_score and _go_cache and "hs" in _go_cache:
+            _hs_y = go_y + 48
+            _hs_pulse = int(3 * math.sin(_ticks * 4))
+            screen.blit(_go_cache["hs_glow"], (cx - _go_cache["hs_glow"].get_width() // 2 + 2, _hs_y + 2))
+            screen.blit(_go_cache["hs"], (cx - _go_cache["hs"].get_width() // 2, _hs_y + _hs_pulse))
+
+        # ── Creature Showcase Row ──
+        _showcase_y = go_y + 90
+        _stk_spacing = _SHOWCASE_SIZE + 16
+        _row_w = 5 * _stk_spacing - 16
+        _row_x = cx - _row_w // 2
+        for i, ct in enumerate(CREATURE_TYPES):
+            _sx = _row_x + i * _stk_spacing
+            _caught = ct["image_key"] in _go_caught_keys
+            if _caught:
+                # Gentle bob animation
+                _bob = int(4 * math.sin(_ticks * 2.5 + i * 1.2))
+                screen.blit(_showcase_stickers[ct["image_key"]], (_sx, _showcase_y + _bob))
+                # Green checkmark below
+                screen.blit(_check_surf, (_sx + _SHOWCASE_SIZE // 2 - 10, _showcase_y + _SHOWCASE_SIZE + 2 + _bob))
+            else:
+                screen.blit(_showcase_grey[ct["image_key"]], (_sx, _showcase_y))
+            # Creature name label (pre-cached)
+            _nm_surf = _showcase_names_caught[ct["image_key"]] if _caught else _showcase_names_grey[ct["image_key"]]
+            screen.blit(_nm_surf, (_sx + _SHOWCASE_SIZE // 2 - _nm_surf.get_width() // 2, _showcase_y + _SHOWCASE_SIZE + 18))
+
+        # ── Middle section: trainer + score ──
+        _mid_y = _showcase_y + _SHOWCASE_SIZE + 44
+        # Trainer sprite (left side of center)
+        _trainer_img = trainer_images[selected_char] if selected_char < len(trainer_images) else None
+        _score_card_w = 240
+        _trainer_area_w = 90
+        _total_mid_w = _trainer_area_w + 20 + _score_card_w
+        _mid_left = cx - _total_mid_w // 2
+        if _trainer_img:
+            screen.blit(_trainer_img, (_mid_left + _trainer_area_w // 2 - 35, _mid_y))
+        else:
+            pygame.draw.circle(screen, (100, 100, 120), (_mid_left + _trainer_area_w // 2, _mid_y + 45), 30)
+            _fb = small_font.render("T", True, WHITE)
+            screen.blit(_fb, (_mid_left + _trainer_area_w // 2 - _fb.get_width() // 2, _mid_y + 32))
+
+        # Score card (right of trainer)
+        _sc_x = _mid_left + _trainer_area_w + 20
+        _sc_h = 92
+        pygame.draw.rect(screen, (26, 28, 48), (_sc_x, _mid_y, _score_card_w, _sc_h), border_radius=12)
+        pygame.draw.rect(screen, (60, 65, 90), (_sc_x, _mid_y, _score_card_w, _sc_h), width=1, border_radius=12)
+        # Animated score
         if _go_anim_done and _go_cache and "_score_final" not in _go_cache:
             _go_cache["_score_final"] = score_big_font.render(str(_go_anim_score), True, SCORE_GOLD)
         if _go_cache and "_score_final" in _go_cache:
             _score_text = _go_cache["_score_final"]
         else:
             _score_text = score_big_font.render(str(_go_anim_score), True, SCORE_GOLD)
-        screen.blit(_score_text, (cx - _score_text.get_width() // 2, go_y + 45))
-
+        screen.blit(_score_text, (_sc_x + _score_card_w // 2 - _score_text.get_width() // 2, _mid_y + 4))
+        # Caught count line
         if _go_cache:
-            screen.blit(_go_cache["count"], (cx - _go_cache["count"].get_width() // 2, go_y + 125))
+            _ct_surf = _go_cache["count"]
+            screen.blit(_ct_surf, (_sc_x + _score_card_w // 2 - _ct_surf.get_width() // 2, _mid_y + 66))
 
-        # Creature dots row
-        caught_count = len(inventory)
-        if caught_count > 0:
-            visible = inventory[:15]
-            spacing = 28
-            circle_radius = 10
-            row_width = len(visible) * spacing - (spacing - circle_radius * 2)
-            row_start_x = cx - row_width // 2 + circle_radius
-            row_y = go_y + 158
-            for idx, creature_name in enumerate(visible):
-                color = CREATURE_COLORS.get(creature_name, (200, 200, 200))
-                pygame.draw.circle(screen, color, (row_start_x + idx * spacing, row_y), circle_radius)
+        # ── Personal best + all-time stats (cached) ──
+        _stats_y = _mid_y + _sc_h + 8
+        if _go_cache:
+            screen.blit(_go_cache["pb"], (cx - 10 - _go_cache["pb"].get_width(), _stats_y))
+            screen.blit(_go_cache["at"], (cx + 10, _stats_y))
 
-        # #11: Personal best with this trainer
-        _tk = str(selected_char)
-        _pb = _stats.get("trainer_bests", {}).get(_tk, 0)
-        _pb_text = tiny_font.render(f"Trainer {selected_char + 1} personal best: {_pb}", True, (170, 170, 170))
-        screen.blit(_pb_text, (cx - _pb_text.get_width() // 2, go_y + 178))
+        # ── Two-column bottom: leaderboard left, name entry right ──
+        _bot_y = _stats_y + 24
+        _col_w = 240
+        _col_gap = 40
+        _left_x = cx - _col_gap // 2 - _col_w
+        _right_x = cx + _col_gap // 2
 
-        # #14: All-time cumulative catch count
-        _total_all_time = sum(_stats.get("total_catches", {}).values())
-        _at_text = tiny_font.render(f"All-time creatures caught: {_total_all_time}", True, (140, 140, 160))
-        screen.blit(_at_text, (cx - _at_text.get_width() // 2, go_y + 196))
+        # Left column: Top 5 leaderboard (cached surfaces)
+        pygame.draw.rect(screen, (22, 24, 42), (_left_x, _bot_y, _col_w, 170), border_radius=10)
+        pygame.draw.rect(screen, (50, 55, 80), (_left_x, _bot_y, _col_w, 170), width=1, border_radius=10)
+        if _go_cache:
+            screen.blit(_go_cache["lb_title"], (_left_x + _col_w // 2 - _go_cache["lb_title"].get_width() // 2, _bot_y + 8))
+            if _go_cache["lb_lines"]:
+                for i, _line in enumerate(_go_cache["lb_lines"]):
+                    screen.blit(_line, (_left_x + 20, _bot_y + 30 + i * 26))
+            else:
+                _no = tiny_font.render("No scores yet!", True, (120, 120, 130))
+                screen.blit(_no, (_left_x + _col_w // 2 - _no.get_width() // 2, _bot_y + 60))
 
-        # Name entry pill or saved message
-        prompt_y = go_y + 220
+        # Right column: Name entry
+        pygame.draw.rect(screen, (22, 24, 42), (_right_x, _bot_y, _col_w, 170), border_radius=10)
+        pygame.draw.rect(screen, (50, 55, 80), (_right_x, _bot_y, _col_w, 170), width=1, border_radius=10)
         if score_saved:
-            _saved_text = small_font.render("Score saved!  Press  R  to return to menu", True, WHITE)
-            screen.blit(_saved_text, (cx - _saved_text.get_width() // 2, prompt_y))
+            _sv1 = small_font.render("Saved!", True, (100, 230, 100))
+            screen.blit(_sv1, (_right_x + _col_w // 2 - _sv1.get_width() // 2, _bot_y + 50))
+            _sv2 = tiny_font.render("Press R to play again", True, (180, 180, 190))
+            screen.blit(_sv2, (_right_x + _col_w // 2 - _sv2.get_width() // 2, _bot_y + 85))
+        elif score == 0:
+            _z1 = small_font.render("No score", True, (160, 160, 170))
+            screen.blit(_z1, (_right_x + _col_w // 2 - _z1.get_width() // 2, _bot_y + 55))
+            _z2 = tiny_font.render("Press R to try again", True, (140, 140, 150))
+            screen.blit(_z2, (_right_x + _col_w // 2 - _z2.get_width() // 2, _bot_y + 85))
         else:
-            _pill_w, _pill_h = 320, 44
-            _pill_x = cx - _pill_w // 2
-            _pill_y = prompt_y
-            pygame.draw.rect(screen, (40, 40, 60), (_pill_x, _pill_y, _pill_w, _pill_h), border_radius=20)
-            pygame.draw.rect(screen, ACCENT, (_pill_x, _pill_y, _pill_w, _pill_h), width=2, border_radius=20)
-            _lbl = tiny_font.render("Enter name (5 chars):", True, (180, 180, 180))
-            screen.blit(_lbl, (cx - _lbl.get_width() // 2, _pill_y - 20))
+            _ne_title = tiny_font.render("SAVE YOUR SCORE", True, SCORE_GOLD)
+            screen.blit(_ne_title, (_right_x + _col_w // 2 - _ne_title.get_width() // 2, _bot_y + 12))
+            _ne_lbl = tiny_font.render("Name (max 5 chars):", True, (160, 160, 170))
+            screen.blit(_ne_lbl, (_right_x + _col_w // 2 - _ne_lbl.get_width() // 2, _bot_y + 40))
+            # Pill input
+            _pill_w, _pill_h = 180, 38
+            _pill_x = _right_x + _col_w // 2 - _pill_w // 2
+            _pill_y = _bot_y + 62
+            pygame.draw.rect(screen, (36, 38, 56), (_pill_x, _pill_y, _pill_w, _pill_h), border_radius=18)
+            pygame.draw.rect(screen, ACCENT, (_pill_x, _pill_y, _pill_w, _pill_h), width=2, border_radius=18)
             cursor = "" if len(name_input) >= 5 else ("|" if int(_ticks * 2) % 2 == 0 else " ")
             _name_surf = small_font.render(f"{name_input}{cursor}", True, WHITE)
-            screen.blit(_name_surf, (cx - _name_surf.get_width() // 2, _pill_y + 10))
+            screen.blit(_name_surf, (_pill_x + _pill_w // 2 - _name_surf.get_width() // 2, _pill_y + 7))
+            if len(name_input) > 0:
+                _enter_hint = tiny_font.render("Press ENTER to save", True, (140, 200, 140))
+                screen.blit(_enter_hint, (_right_x + _col_w // 2 - _enter_hint.get_width() // 2, _bot_y + 108))
 
-        # Top 5 scores
-        if high_scores:
-            _hs_y = go_y + 285
-            hs_title = small_font.render("TOP 5 HIGH SCORES", True, WHITE)
-            screen.blit(hs_title, (cx - hs_title.get_width() // 2, _hs_y))
-            for i, (n, s) in enumerate(high_scores):
-                line = small_font.render(f"{i+1}. {n} -- {s}", True, WHITE)
-                screen.blit(line, (cx - line.get_width() // 2, _hs_y + 30 + i * 30))
+        # ── Always-visible navigation ──
+        if _go_cache:
+            _nav_y = HEIGHT - 28
+            screen.blit(_go_cache["nav_r"], (cx - _go_cache["nav_r"].get_width() - 20, _nav_y))
+            screen.blit(_go_cache["nav_q"], (cx + 20, _nav_y))
 
     # #10: Pause screen
     elif game_state == "paused":

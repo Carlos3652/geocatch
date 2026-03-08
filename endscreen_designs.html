@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoCatch — End Screen Design Concepts</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --card: #1a1a2e;
+    --accent: #f5a623;
+    --accent2: #4ecdc4;
+    --text: #e8e8e8;
+    --muted: #888;
+    --green: #27ae60;
+    --red: #e74c3c;
+    --blue: #3498db;
+    --purple: #9b59b6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; line-height: 1.6; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 30px 20px; }
+  h1 { text-align: center; font-size: 2.2em; color: var(--accent); margin-bottom: 8px; }
+  .subtitle { text-align: center; color: var(--muted); font-size: 1.1em; margin-bottom: 40px; }
+  .verdict { background: linear-gradient(135deg, #1a2a1a, #1a1a2e); border: 2px solid var(--green); border-radius: 12px; padding: 24px 28px; margin-bottom: 40px; }
+  .verdict h2 { color: var(--green); font-size: 1.4em; margin-bottom: 12px; }
+  .verdict p { color: var(--text); font-size: 1.05em; }
+  .verdict .highlight { color: var(--accent); font-weight: bold; }
+  .shared-insights { background: var(--card); border-radius: 12px; padding: 24px; margin-bottom: 40px; border-left: 4px solid var(--accent2); }
+  .shared-insights h2 { color: var(--accent2); margin-bottom: 14px; }
+  .shared-insights ul { list-style: none; padding: 0; }
+  .shared-insights li { padding: 6px 0; padding-left: 24px; position: relative; }
+  .shared-insights li::before { content: "✓"; color: var(--accent2); position: absolute; left: 0; font-weight: bold; }
+  .concept-grid { display: grid; grid-template-columns: 1fr; gap: 28px; margin-bottom: 40px; }
+  .concept-card { background: var(--card); border-radius: 14px; overflow: hidden; border: 2px solid transparent; transition: border-color 0.3s; }
+  .concept-card:hover { border-color: var(--accent); }
+  .concept-card.recommended { border-color: var(--green); }
+  .concept-card.recommended .card-header { background: linear-gradient(135deg, #1a3a1a, #1a2a2e); }
+  .card-header { padding: 20px 24px; border-bottom: 1px solid #2a2a3e; display: flex; justify-content: space-between; align-items: center; }
+  .card-header h3 { font-size: 1.3em; }
+  .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold; }
+  .badge.rec { background: var(--green); color: #fff; }
+  .badge.vector { background: var(--purple); color: #fff; }
+  .badge.uiux { background: var(--blue); color: #fff; }
+  .badge.both { background: var(--accent); color: #000; }
+  .card-body { padding: 24px; }
+  .card-body p { margin-bottom: 14px; color: #ccc; }
+  .wireframe { background: #111; border: 1px solid #333; border-radius: 8px; padding: 16px; font-family: 'Courier New', monospace; font-size: 12px; color: #aaa; white-space: pre; overflow-x: auto; line-height: 1.4; margin: 16px 0; }
+  .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  .pros, .cons { padding: 14px; border-radius: 8px; }
+  .pros { background: #1a2a1a; border: 1px solid #2a4a2a; }
+  .cons { background: #2a1a1a; border: 1px solid #4a2a2a; }
+  .pros h4 { color: var(--green); margin-bottom: 8px; }
+  .cons h4 { color: var(--red); margin-bottom: 8px; }
+  .pros li, .cons li { font-size: 0.9em; padding: 3px 0; color: #bbb; }
+  .source-tag { font-size: 0.85em; color: var(--muted); margin-top: 12px; }
+  .section-title { font-size: 1.6em; color: var(--accent); margin-bottom: 20px; padding-bottom: 8px; border-bottom: 2px solid #2a2a3e; }
+  .ab-variant { background: #1a1a30; border: 1px solid #3a3a5e; border-radius: 10px; padding: 18px; margin-top: 16px; }
+  .ab-variant h4 { color: var(--accent2); margin-bottom: 8px; }
+  .feature-list { list-style: none; padding: 0; }
+  .feature-list li { padding: 5px 0 5px 20px; position: relative; font-size: 0.95em; }
+  .feature-list li::before { content: "•"; color: var(--accent); position: absolute; left: 0; }
+  footer { text-align: center; color: var(--muted); font-size: 0.85em; padding: 30px 0; border-top: 1px solid #2a2a3e; margin-top: 40px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>GeoCatch — End Screen Redesign</h1>
+<p class="subtitle">Combined analysis from VECTOR (Game Designer) and UI/UX Visionary</p>
+
+<!-- ── VERDICT ── -->
+<div class="verdict">
+  <h2>Both Experts Agree</h2>
+  <p>Both the game designer and UI/UX expert independently recommend <span class="highlight">Concept B — "Creature Showcase / Creature Parade"</span> as the strongest end screen design. It puts caught creatures front-and-center, replaces negative "GAME OVER" language with celebratory messaging, and gives the family-friendly GeoCatch identity a proper send-off.</p>
+  <p style="margin-top:10px;">VECTOR additionally recommends borrowing the <span class="highlight">fireworks particle effect</span> from Concept E for new high-score moments only — a lightweight enhancement that doesn't add complexity to the normal flow.</p>
+</div>
+
+<!-- ── SHARED INSIGHTS ── -->
+<div class="shared-insights">
+  <h2>Shared Design Principles (Both Experts)</h2>
+  <ul>
+    <li>Show the trainer sprite prominently — players identify with their character</li>
+    <li>Replace "GAME OVER" / "TIME'S UP" with positive language ("Great Run!", "Expedition Complete!")</li>
+    <li>Make caught creatures the hero of the screen — they're the reward</li>
+    <li>Always show navigation hints (R to Restart, Q to Quit) — no dead-end traps</li>
+    <li>Cap score count-up animation at ~2 seconds max regardless of score value</li>
+    <li>Name entry should be clearly visible and inviting, not hidden at the bottom</li>
+    <li>High score celebration should be distinct but not overwhelming for a family game</li>
+  </ul>
+</div>
+
+<!-- ── CONCEPTS ── -->
+<h2 class="section-title">Design Concepts</h2>
+
+<!-- CONCEPT A -->
+<div class="concept-grid">
+
+<div class="concept-card">
+  <div class="card-header">
+    <h3>Concept A — "Expedition Debrief" / "Trophy Ceremony"</h3>
+    <span class="badge both">Both Experts</span>
+  </div>
+  <div class="card-body">
+    <p><strong>Theme:</strong> A formal results screen with trophy/medal imagery. Score displayed prominently with a stats breakdown panel showing creatures caught, accuracy, and streaks.</p>
+
+    <div class="wireframe">┌─────────────────────────────────────┐
+│          🏆 EXPEDITION COMPLETE!         │
+│                                          │
+│           ┌──────────────┐               │
+│           │  SCORE: 1280 │               │
+│           │   ★ ★ ★ ☆    │  (star rating)│
+│           └──────────────┘               │
+│                                          │
+│  ┌─────────────┐  ┌─────────────┐       │
+│  │ Creatures: 4│  │ Best Streak │       │
+│  │ Accuracy:78%│  │    ×2.0     │       │
+│  └─────────────┘  └─────────────┘       │
+│                                          │
+│    [  Enter Name: ___________  ]         │
+│                                          │
+│   ── TOP 5 ──────────────────            │
+│   1. DAD  2270   2. LEO  475            │
+│                                          │
+│     [R] Restart    [Q] Quit              │
+└──────────────────────────────────────────┘</div>
+
+    <div class="pros-cons">
+      <div class="pros"><h4>Pros</h4><ul>
+        <li>Clean, readable layout</li>
+        <li>Stats breakdown adds replay value</li>
+        <li>Familiar "results screen" pattern</li>
+      </ul></div>
+      <div class="cons"><h4>Cons</h4><ul>
+        <li>Doesn't showcase the creatures themselves</li>
+        <li>Can feel clinical / generic</li>
+        <li>Trophy metaphor doesn't match creature-catching theme</li>
+      </ul></div>
+    </div>
+    <p class="source-tag">Sources: VECTOR "Trophy Ceremony" + UI/UX "Expedition Debrief"</p>
+  </div>
+</div>
+
+<!-- CONCEPT B — RECOMMENDED -->
+<div class="concept-card recommended">
+  <div class="card-header">
+    <h3>Concept B — "Creature Showcase" / "Creature Parade"</h3>
+    <span class="badge rec">★ RECOMMENDED</span>
+  </div>
+  <div class="card-body">
+    <p><strong>Theme:</strong> The creatures you caught are the stars. All 5 creature stickers displayed in a row — caught ones in full color with a gentle bob animation, uncaught ones greyed out with "?" overlay. Trainer sprite shown alongside. Positive tier-based message replaces "GAME OVER".</p>
+
+    <div class="wireframe">┌──────────────────────────────────────────┐
+│                                          │
+│          ✨ LEGENDARY EXPLORER! ✨        │
+│                                          │
+│    🔥    💧    🌿    ⚡    👻            │
+│   [FIRE] [WATER][FOREST][ELEC] [SHADOW]  │
+│    ✓      ✓      ✓      ?      ✓        │
+│  (color) (color)(color) (grey) (color)   │
+│                                          │
+│        ┌────────────┐                    │
+│   🧑    │ SCORE 1280 │  Caught 4/5       │
+│  (trainer)│ ★★★☆      │  Streak ×2.0     │
+│        └────────────┘                    │
+│                                          │
+│  ┌──────────────┐  ┌──────────────────┐  │
+│  │  TOP 5       │  │ Enter Name:      │  │
+│  │ 1. DAD 2270  │  │ [  ___________]  │  │
+│  │ 2. LEO  475  │  │                  │  │
+│  │ 3. LEO  355  │  │ [ENTER to save]  │  │
+│  └──────────────┘  └──────────────────┘  │
+│                                          │
+│      [R] Play Again    [Q] Menu          │
+└──────────────────────────────────────────┘</div>
+
+    <p><strong>Tier Messages</strong> (based on score thresholds):</p>
+    <ul class="feature-list">
+      <li>5/5 caught → "LEGENDARY EXPLORER!"</li>
+      <li>4/5 caught → "AMAZING RUN!"</li>
+      <li>2-3 caught → "GREAT JOB!"</li>
+      <li>0-1 caught → "NICE TRY!"</li>
+    </ul>
+
+    <p><strong>VECTOR's parade twist:</strong> Creatures march across the screen with a gentle bob animation, sky-blue/grass-green background reminiscent of the game world. On new high score, add fireworks particle burst (borrowed from Concept E).</p>
+
+    <div class="ab-variant">
+      <h4>A/B Variant — Show All 5 vs Only Caught</h4>
+      <p><strong>Variant A (Recommended):</strong> Show all 5 creature stickers. Caught = full color + checkmark. Uncaught = greyed silhouette + "?". This creates a "gotta catch 'em all" motivation for replay.</p>
+      <p><strong>Variant B:</strong> Only show caught creatures. Cleaner but removes the collection-completion incentive.</p>
+    </div>
+
+    <div class="pros-cons">
+      <div class="pros"><h4>Pros</h4><ul>
+        <li>Creatures are the hero — matches game identity perfectly</li>
+        <li>Grey silhouettes create replay motivation</li>
+        <li>Positive messaging feels rewarding for kids</li>
+        <li>Two-column bottom layout is clean and functional</li>
+        <li>Trainer sprite adds personal connection</li>
+      </ul></div>
+      <div class="cons"><h4>Cons</h4><ul>
+        <li>More implementation work than simpler designs</li>
+        <li>Need to handle variable caught counts gracefully</li>
+      </ul></div>
+    </div>
+    <p class="source-tag">Sources: VECTOR "Creature Parade" (Rank 1) + UI/UX "Creature Showcase" (Rank 1)</p>
+  </div>
+</div>
+
+<!-- CONCEPT C -->
+<div class="concept-card">
+  <div class="card-header">
+    <h3>Concept C — "Scoreboard Podium" / "Family Hall of Fame"</h3>
+    <span class="badge both">Both Experts</span>
+  </div>
+  <div class="card-body">
+    <p><strong>Theme:</strong> A large, prominent leaderboard as the centerpiece. Gold/silver/bronze podium styling for top 3. Current run highlighted if it places. Family-oriented — emphasizes competition between players (DAD vs LEO).</p>
+
+    <div class="wireframe">┌──────────────────────────────────────────┐
+│           ⭐ HALL OF FAME ⭐              │
+│                                          │
+│         ┌───┐                            │
+│      ┌──┤ 1 ├──┐                         │
+│   ┌──┤  │DAD│  ├──┐                      │
+│   │ 3│  │2270│ │ 2│                       │
+│   │LEO│ └───┘  │LEO│                      │
+│   │355│        │475│                      │
+│   └───┘        └───┘                      │
+│                                          │
+│   Your Score: 1280  →  NEW #2! 🎉        │
+│                                          │
+│    [  Enter Name: ___________  ]         │
+│                                          │
+│      [R] Play Again    [Q] Menu          │
+└──────────────────────────────────────────┘</div>
+
+    <div class="pros-cons">
+      <div class="pros"><h4>Pros</h4><ul>
+        <li>Perfect for family competition (DAD vs kids)</li>
+        <li>Podium visual is satisfying when you place</li>
+        <li>Simple and focused layout</li>
+      </ul></div>
+      <div class="cons"><h4>Cons</h4><ul>
+        <li>Disappointing when you don't place in top 3</li>
+        <li>Doesn't showcase creatures at all</li>
+        <li>Podium rendering is complex for limited payoff</li>
+      </ul></div>
+    </div>
+    <p class="source-tag">Sources: VECTOR "Family Hall of Fame" + UI/UX "Scoreboard Podium"</p>
+  </div>
+</div>
+
+<!-- CONCEPT D -->
+<div class="concept-card">
+  <div class="card-header">
+    <h3>Concept D — "Card Reveal" / "Celebration Burst"</h3>
+    <span class="badge both">Both Experts</span>
+  </div>
+  <div class="card-body">
+    <p><strong>Theme:</strong> Dramatic reveal animation. Each caught creature gets a "card flip" or burst animation, shown one at a time with a brief delay. Final score revealed after all creatures shown. High-energy, arcade feel.</p>
+
+    <div class="wireframe">┌──────────────────────────────────────────┐
+│                                          │
+│      ┌────────────────────┐              │
+│      │   ✨ FIRE DRAKE ✨  │  ← card flips│
+│      │                    │    in one by  │
+│      │    [creature art]  │    one with   │
+│      │                    │    1s delay   │
+│      │    +320 pts        │              │
+│      └────────────────────┘              │
+│                                          │
+│   After all cards:                       │
+│      TOTAL SCORE: 1280                   │
+│      [Enter Name] [R] [Q]               │
+└──────────────────────────────────────────┘</div>
+
+    <div class="pros-cons">
+      <div class="pros"><h4>Pros</h4><ul>
+        <li>Most dramatic and exciting reveal</li>
+        <li>Each creature gets individual spotlight</li>
+        <li>Builds anticipation for final score</li>
+      </ul></div>
+      <div class="cons"><h4>Cons</h4><ul>
+        <li>Slow — players may want to skip after first time</li>
+        <li>Complex animation state machine</li>
+        <li>Frustrating if you only caught 1 creature</li>
+      </ul></div>
+    </div>
+    <p class="source-tag">Sources: VECTOR "Pokemon Card Reveal" + UI/UX "Celebration Burst"</p>
+  </div>
+</div>
+
+<!-- CONCEPT E -->
+<div class="concept-card">
+  <div class="card-header">
+    <h3>Concept E — "Fireworks Finale" / "Map Postcard"</h3>
+    <span class="badge both">Both Experts</span>
+  </div>
+  <div class="card-body">
+    <p><strong>Theme:</strong> A celebratory particle/fireworks display over the game map (or a postcard snapshot of the map). Score floats up with sparkle trails. Most visually impressive but potentially distracting from the actual information.</p>
+
+    <div class="wireframe">┌──────────────────────────────────────────┐
+│  ✦   ✧        ✦                  ✧      │
+│     ✧    ✦  SCORE: 1280   ✦    ✧        │
+│  ✦     ✧        ✦      ✧     ✦          │
+│                                          │
+│         [map background faded]           │
+│     ┌─ · ─ · ─ · ─ · ─ · ─┐            │
+│     · (your trail on map)  ·            │
+│     └─ · ─ · ─ · ─ · ─ · ─┘            │
+│                                          │
+│    ┌────────────────────────┐            │
+│    │  Name: ___   [SAVE]    │            │
+│    └────────────────────────┘            │
+│      [R] Play Again    [Q] Menu          │
+└──────────────────────────────────────────┘</div>
+
+    <div class="pros-cons">
+      <div class="pros"><h4>Pros</h4><ul>
+        <li>Most visually spectacular</li>
+        <li>Map postcard creates a "memory" feeling</li>
+        <li>Fireworks particle system is reusable</li>
+      </ul></div>
+      <div class="cons"><h4>Cons</h4><ul>
+        <li>Particles can obscure score/name entry</li>
+        <li>Map rendering on end screen adds complexity</li>
+        <li>Fireworks feel disconnected from creature theme</li>
+        <li>Heavy for every game — better as high-score-only bonus</li>
+      </ul></div>
+    </div>
+    <p class="source-tag">Sources: VECTOR "Fireworks Finale" + UI/UX "Map Postcard"</p>
+  </div>
+</div>
+
+</div><!-- concept-grid -->
+
+<!-- ── FINAL RECOMMENDATION ── -->
+<div class="verdict" style="border-color: var(--accent);">
+  <h2 style="color: var(--accent);">Implementation Recommendation</h2>
+  <p><span class="highlight">Concept B "Creature Showcase"</span> as the base design, with the following enhancements:</p>
+  <ul class="feature-list" style="margin-top: 12px;">
+    <li>All 5 creature stickers in a row (caught = color + ✓, uncaught = grey + "?")</li>
+    <li>Trainer sprite displayed alongside score card</li>
+    <li>Tier-based positive message instead of "GAME OVER"</li>
+    <li>Score count-up animation (capped at 2 seconds)</li>
+    <li>Two-column bottom: leaderboard left, name entry right</li>
+    <li>Fireworks particle burst on NEW HIGH SCORE only (from Concept E)</li>
+    <li>Gentle creature bob animation for caught creatures</li>
+    <li>Always-visible [R] Play Again / [Q] Menu navigation</li>
+  </ul>
+</div>
+
+<footer>
+  GeoCatch End Screen Design Review — VECTOR (Game Designer) + UI/UX Visionary — March 2026
+</footer>
+
+</div>
+</body>
+</html>
