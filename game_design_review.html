@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoCatch — Game Design Review</title>
+<style>
+  :root {
+    --bg-primary:    rgb(26, 26, 46);
+    --bg-secondary:  rgb(16, 16, 32);
+    --bg-card:       rgb(34, 34, 58);
+    --bg-card-hover: rgb(40, 40, 68);
+    --accent:        rgb(255, 107, 53);
+    --accent-muted:  rgba(255, 107, 53, 0.18);
+    --gold:          rgb(255, 215, 0);
+    --gold-muted:    rgba(255, 215, 0, 0.12);
+    --text-primary:  rgb(232, 232, 240);
+    --text-muted:    rgb(150, 150, 170);
+    --text-dim:      rgb(100, 100, 120);
+    --lake:          rgb(59, 159, 212);
+    --green:         rgb(76, 175, 80);
+    --purple:        rgb(156, 39, 176);
+    --border:        rgba(255, 255, 255, 0.08);
+    --tag-crit-bg:   rgba(255, 59, 48,  0.20);
+    --tag-crit-bd:   rgb(255, 59, 48);
+    --tag-high-bg:   rgba(255, 149, 0,  0.20);
+    --tag-high-bd:   rgb(255, 149, 0);
+    --tag-med-bg:    rgba(255, 215, 0,  0.18);
+    --tag-med-bd:    rgb(255, 215, 0);
+    --tag-low-bg:    rgba(76,  175, 80, 0.18);
+    --tag-low-bd:    rgb(76,  175, 80);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border);
+    padding: 48px 64px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 320px; height: 320px;
+    background: radial-gradient(circle, rgba(255,107,53,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-label {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+  .header h1 {
+    font-size: 42px;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+  .header h1 span { color: var(--accent); }
+  .header .subtitle {
+    font-size: 16px;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+  }
+  .meta-row {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+  }
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .meta-item strong { color: var(--text-primary); }
+
+  /* ── LAYOUT ── */
+  .container {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 40px 80px;
+  }
+
+  /* ── DASHBOARD ── */
+  .dashboard {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin: 40px 0 48px;
+  }
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 20px;
+    text-align: center;
+  }
+  .stat-card .number {
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .stat-card .label {
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .stat-card.crit .number  { color: var(--tag-crit-bd); }
+  .stat-card.high .number  { color: var(--tag-high-bd); }
+  .stat-card.med  .number  { color: var(--tag-med-bd);  }
+  .stat-card.low  .number  { color: var(--tag-low-bd);  }
+
+  .verdict-bar {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 48px;
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .verdict-score {
+    flex-shrink: 0;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 3px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 900;
+    color: var(--accent);
+  }
+  .verdict-text h2 { font-size: 18px; margin-bottom: 6px; }
+  .verdict-text p  { color: var(--text-muted); font-size: 14px; }
+
+  /* ── SECTIONS ── */
+  .section {
+    margin-bottom: 56px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-number {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--accent-muted);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .section-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .section-header .icon {
+    font-size: 20px;
+    margin-left: auto;
+  }
+
+  .analysis-block {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 14px;
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.75;
+  }
+  .analysis-block strong { color: var(--text-primary); }
+  .analysis-block .highlight {
+    color: var(--gold);
+    font-weight: 600;
+  }
+  .analysis-block .concern {
+    color: var(--tag-crit-bd);
+    font-weight: 600;
+  }
+  .analysis-block .positive {
+    color: var(--tag-low-bd);
+    font-weight: 600;
+  }
+  .analysis-block ul {
+    margin: 10px 0 0 20px;
+  }
+  .analysis-block ul li {
+    margin-bottom: 5px;
+  }
+
+  .inline-stat {
+    display: inline-block;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1px 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: var(--gold);
+    margin: 0 2px;
+  }
+
+  /* ── SUGGESTION CARDS ── */
+  .suggestions-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .suggestion-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 16px;
+    align-items: start;
+  }
+  .suggestion-card:hover {
+    background: var(--bg-card-hover);
+    border-color: rgba(255,255,255,0.12);
+  }
+  .suggestion-rank {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--text-dim);
+    line-height: 1;
+    padding-top: 2px;
+    min-width: 28px;
+    text-align: center;
+  }
+  .suggestion-body {}
+  .suggestion-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .suggestion-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.65;
+    margin-bottom: 10px;
+  }
+  .suggestion-meta {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .meta-pill {
+    font-size: 11px;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .meta-pill.impact-high  { background: rgba(76,175,80,0.18); color: rgb(76,175,80); border: 1px solid rgba(76,175,80,0.4); }
+  .meta-pill.impact-med   { background: rgba(255,215,0,0.12); color: rgb(255,215,0); border: 1px solid rgba(255,215,0,0.4); }
+  .meta-pill.impact-low   { background: rgba(150,150,180,0.12); color: rgb(150,150,180); border: 1px solid rgba(150,150,180,0.3); }
+  .meta-pill.effort-low   { background: rgba(59,159,212,0.15); color: rgb(59,159,212); border: 1px solid rgba(59,159,212,0.4); }
+  .meta-pill.effort-med   { background: rgba(255,149,0,0.15); color: rgb(255,149,0); border: 1px solid rgba(255,149,0,0.4); }
+  .meta-pill.effort-high  { background: rgba(255,59,48,0.15); color: rgb(255,59,48); border: 1px solid rgba(255,59,48,0.4); }
+  .suggestion-badge {
+    flex-shrink: 0;
+    text-align: right;
+  }
+
+  /* ── PRIORITY TAGS ── */
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .tag.CRITICAL { background: var(--tag-crit-bg); color: var(--tag-crit-bd); border: 1px solid var(--tag-crit-bd); }
+  .tag.HIGH     { background: var(--tag-high-bg); color: var(--tag-high-bd); border: 1px solid var(--tag-high-bd); }
+  .tag.MED      { background: var(--tag-med-bg);  color: var(--tag-med-bd);  border: 1px solid var(--tag-med-bd);  }
+  .tag.LOW      { background: var(--tag-low-bg);  color: var(--tag-low-bd);  border: 1px solid var(--tag-low-bd);  }
+
+  /* ── COMPARISON TABLE ── */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .compare-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--bg-primary);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .compare-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--text-muted);
+  }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table td:first-child { color: var(--text-primary); font-weight: 600; }
+  .compare-table .win  { color: rgb(76,175,80); }
+  .compare-table .lose { color: rgb(255,59,48); }
+  .compare-table .tie  { color: rgb(255,215,0); }
+  .compare-table-wrapper {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  /* ── ECONOMY DIAGRAM ── */
+  .economy-row {
+    display: flex;
+    gap: 0;
+    align-items: center;
+    margin: 16px 0;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .econ-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    text-align: center;
+  }
+  .econ-box .val  { font-size: 20px; font-weight: 800; color: var(--gold); }
+  .econ-box .lbl  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .econ-arrow     { color: var(--text-dim); font-size: 20px; }
+  .econ-box.bomb  { border-color: var(--tag-crit-bd); }
+  .econ-box.bomb .val { color: var(--tag-crit-bd); }
+
+  /* ── FOOTER ── */
+  .footer {
+    border-top: 1px solid var(--border);
+    padding: 28px 40px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── CREATURE CHIPS ── */
+  .creature-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .creature-chip {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 12px;
+    text-align: center;
+  }
+  .creature-chip .dot {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    margin: 0 auto 8px;
+  }
+  .creature-chip .name  { font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 3px; }
+  .creature-chip .pts   { font-size: 11px; color: var(--gold); margin-bottom: 6px; }
+  .creature-chip .diff  { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+  .creature-chip .gap-label { font-size: 10px; color: var(--tag-crit-bd); margin-top: 4px; font-weight: 600; }
+
+  /* Callout blocks */
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-muted);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    margin: 14px 0;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+  .callout.warning {
+    border-color: var(--tag-crit-bd);
+    background: var(--tag-crit-bg);
+  }
+  .callout.positive {
+    border-color: var(--tag-low-bd);
+    background: var(--tag-low-bg);
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .header { padding: 32px 24px; }
+    .container { padding: 0 20px 60px; }
+    .dashboard { grid-template-columns: repeat(2, 1fr); }
+    .creature-grid { grid-template-columns: repeat(2, 1fr); }
+    .suggestion-card { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  HEADER                                                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="header">
+  <div class="header-label">Game Design Review — VECTOR</div>
+  <h1>Geo<span>Catch</span></h1>
+  <div class="subtitle">Overland Park Edition &mdash; Pygame Desktop &mdash; Full System Audit</div>
+  <div class="meta-row">
+    <div class="meta-item">Reviewer: <strong>VECTOR</strong></div>
+    <div class="meta-item">Source file: <strong>geocatch_pygame.py</strong></div>
+    <div class="meta-item">Creatures: <strong>5</strong></div>
+    <div class="meta-item">Session length: <strong>60 seconds</strong></div>
+    <div class="meta-item">High score slots: <strong>5</strong></div>
+    <div class="meta-item">Modes: <strong>Single-session arcade</strong></div>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  DASHBOARD                                                             -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="dashboard" style="margin-top:40px;">
+  <div class="stat-card crit">
+    <div class="number">2</div>
+    <div class="label">Critical Issues</div>
+  </div>
+  <div class="stat-card high">
+    <div class="number">4</div>
+    <div class="label">High Priority</div>
+  </div>
+  <div class="stat-card med">
+    <div class="number">7</div>
+    <div class="label">Medium Priority</div>
+  </div>
+  <div class="stat-card low">
+    <div class="number">5</div>
+    <div class="label">Low / Polish</div>
+  </div>
+</div>
+
+<div class="verdict-bar">
+  <div class="verdict-score">6.5</div>
+  <div class="verdict-text">
+    <h2>Solid Arcade Foundation — Needs a Tension System and Differentiation Layer</h2>
+    <p>GeoCatch has a clean core loop, genuine juice work (float texts, bob animation, pulse rings, sticker look), and a well-executed neighbourhood map. The 60-second session is paced correctly for family play. What it lacks is a <em>tension curve</em> — the game starts and ends at the same intensity — and any mechanical difference between the five creatures beyond point value. Those two gaps are the entire difference between a game people return to and one they play once.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  1. CORE LOOP & ENGAGEMENT                                             -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">1</div>
+    <h2>Core Loop &amp; Engagement</h2>
+    <span class="icon">&#x1F504;</span>
+  </div>
+
+  <div class="analysis-block">
+    <strong>The loop:</strong> move &rarr; approach creature &rarr; press SPACE &rarr; earn points &rarr; avoid bombs &rarr; timer expires &rarr; name entry &rarr; back to menu. That's a complete, working arcade loop. No complaints there.
+  </div>
+
+  <div class="analysis-block">
+    <strong>Pacing problem — the flat intensity curve.</strong>
+    The game runs at the exact same pace from second 1 to second 60. Eight creatures spawn, you catch them, eight more spawn. There is no escalation. In a 60-second session, you typically want a simple three-beat structure:
+    <ul>
+      <li><strong>0&ndash;20s:</strong> Orientation, early catches, low risk. Player learns the map.</li>
+      <li><strong>20&ndash;45s:</strong> Mid-game — new threats enter, spawn rate tightens, pressure builds.</li>
+      <li><strong>45&ndash;60s:</strong> Final push — music tempo up, creatures move slightly, bomb density increases, timer turns red (already implemented). This is where high scores are made or lost.</li>
+    </ul>
+    <span class="concern">Currently there is no distinction between these three phases.</span> A player at 15 seconds and a player at 55 seconds are experiencing identical gameplay. This is the single biggest retention killer in the design.
+  </div>
+
+  <div class="analysis-block">
+    <strong>The SPACE-to-catch mechanic.</strong>
+    Using SPACE for catch is fine — it creates a deliberate action moment. The <span class="inline-stat">55px</span> catch radius means you have to be genuinely close, which is the right call for a skill-feel action. However, there is no animation or hold-time on the catch. The creature just disappears. Compare to Pokemon GO's throw mechanic — even a simplified version of &ldquo;enter radius, tap once but with a catch ring animation&rdquo; would make catches feel more rewarding.
+  </div>
+
+  <div class="callout positive">
+    The <span class="inline-stat">proximity label</span> that shows creature name, points, and &ldquo;SPACE to catch&rdquo; only when you're within range is excellent design. It teaches the mechanic passively without cluttering the screen during normal movement. Keep this.
+  </div>
+
+  <div class="analysis-block">
+    <strong>Spawn replenishment.</strong>
+    Creatures replenish immediately when the pool hits 0: <span class="inline-stat">if len(creatures) == 0: spawn_creatures(8)</span>. This means a skilled player who clears the board gets a full instant reset, which is good for score ceiling. But it also means there is never a moment of the map being &ldquo;empty&rdquo; with tension about where the next batch lands. Consider a 1&ndash;2 second delay before respawn — the brief absence would make the new spawn feel like an &ldquo;event&rdquo; rather than an invisible system tick.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  2. CREATURE DESIGN & DIFFERENTIATION                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">2</div>
+    <h2>Creature Design &amp; Differentiation</h2>
+    <span class="icon">&#x1F432;</span>
+  </div>
+
+  <div class="creature-grid">
+    <div class="creature-chip">
+      <div class="dot" style="background: rgb(255,107,0);"></div>
+      <div class="name">Fire Drake</div>
+      <div class="pts">50 pts</div>
+      <div class="diff">No unique mechanic</div>
+      <div class="gap-label">PLACEHOLDER</div>
+    </div>
+    <div class="creature-chip">
+      <div class="dot" style="background: rgb(59,159,212);"></div>
+      <div class="name">Water Sprite</div>
+      <div class="pts">40 pts</div>
+      <div class="diff">No unique mechanic</div>
+      <div class="gap-label">PLACEHOLDER</div>
+    </div>
+    <div class="creature-chip">
+      <div class="dot" style="background: rgb(76,175,80);"></div>
+      <div class="name">Forest Guardian</div>
+      <div class="pts">60 pts</div>
+      <div class="diff">No unique mechanic</div>
+      <div class="gap-label">PLACEHOLDER</div>
+    </div>
+    <div class="creature-chip">
+      <div class="dot" style="background: rgb(255,215,0);"></div>
+      <div class="name">Electric Spark</div>
+      <div class="pts">45 pts</div>
+      <div class="diff">No unique mechanic</div>
+      <div class="gap-label">PLACEHOLDER</div>
+    </div>
+    <div class="creature-chip">
+      <div class="dot" style="background: rgb(156,39,176);"></div>
+      <div class="name">Shadow Phantom</div>
+      <div class="pts">70 pts</div>
+      <div class="diff">Has glow vfx only</div>
+      <div class="gap-label">PARTIAL</div>
+    </div>
+  </div>
+
+  <div class="analysis-block" style="margin-top:16px;">
+    <strong>The core problem:</strong> all five creatures are identical gameplay objects. They differ in sprite, point value, and color — nothing else. The Shadow Phantom gets a glow visual, but that's art direction, not mechanic. There is zero behavioral differentiation. A player has no reason to <em>think</em> about which creature to chase — they just chase whichever is closest and worth the most. That's not a decision, it's a pathfinding problem.
+  </div>
+
+  <div class="callout warning">
+    <strong>Critical gap:</strong> In Pokemon GO, you choose which creatures to pursue based on rarity, IV potential, and Pokedex completion. GeoCatch has point values but no corresponding strategic layer. The point spread of 40&ndash;70 is too narrow (30-point gap) to create genuine target prioritisation decisions under time pressure.
+  </div>
+
+  <div class="analysis-block">
+    <strong>Suggested behavioral archetypes</strong> — these require no major architecture changes, just spawn-time properties added to the creature dict:
+    <ul>
+      <li><strong>Fire Drake (50 pts):</strong> <em>Pacer</em> — slow circular drift around its spawn point. Easy to intercept but requires reading its orbit. Beginner-friendly.</li>
+      <li><strong>Water Sprite (40 pts):</strong> <em>Blinker</em> — periodically teleports a short distance (80&ndash;120px). Low value but tests timing. The &ldquo;trick&rdquo; creature.</li>
+      <li><strong>Forest Guardian (60 pts):</strong> <em>Anchor</em> — spawns near trees, stationary, but requires the player to path around an obstacle to reach it. Tests map knowledge.</li>
+      <li><strong>Electric Spark (45 pts):</strong> <em>Speedster</em> — drifts quickly in a straight line until hitting the map edge, then bounces. Hardest to intercept for its point value. Skill check creature.</li>
+      <li><strong>Shadow Phantom (70 pts):</strong> <em>Fader</em> — becomes semi-transparent (alpha 100) when the player is more than 200px away, making it harder to spot from across the map. Becomes visible on approach. Rewards attentive players.</li>
+    </ul>
+    These are all client-side visual/positional behaviors. No new systems needed — just extend the spawn dict with <span class="inline-stat">behavior_type</span> and handle in the update loop.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  3. RISK / REWARD BALANCE                                              -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">3</div>
+    <h2>Risk / Reward Balance</h2>
+    <span class="icon">&#x2696;</span>
+  </div>
+
+  <div class="economy-row">
+    <div class="econ-box">
+      <div class="val">40</div>
+      <div class="lbl">Water Sprite (min)</div>
+    </div>
+    <div class="econ-arrow">&rarr;</div>
+    <div class="econ-box">
+      <div class="val">70</div>
+      <div class="lbl">Shadow Phantom (max)</div>
+    </div>
+    <div class="econ-arrow">&nbsp;&nbsp;vs&nbsp;&nbsp;</div>
+    <div class="econ-box bomb">
+      <div class="val">-100</div>
+      <div class="lbl">Bomb penalty</div>
+    </div>
+  </div>
+
+  <div class="analysis-block">
+    <strong>The bomb math is brutal but defensible.</strong>
+    A -100 bomb hit costs you between 1.4 and 2.5 creatures depending on which type you were about to catch. At a typical 60-second score of ~320&ndash;480 points (catching ~6&ndash;8 creatures), a single bomb hit represents <span class="concern">20&ndash;31% of your total score</span>. That's steep. But the 1.5-second cooldown window (90 frames) prevents chain-punishment, which is the right safety valve. You can only get hit once per 1.5 seconds.
+  </div>
+
+  <div class="analysis-block">
+    <strong>The real balance problem: bombs are static.</strong>
+    They start at hardcoded positions: <span class="inline-stat">(450, 250), (550, 450), (250, 350), (750, 300)</span> and only relocate <em>after</em> being triggered. A repeat player memorises the four starting positions in 2&ndash;3 sessions and the bomb system becomes trivial. The map threat collapses entirely for experienced players. The relocate-on-trigger behavior is good — but the starting positions should be randomised at <span class="inline-stat">reset_game()</span>.
+  </div>
+
+  <div class="callout positive">
+    The bomb respawn validation logic is strong: it checks against lakes, rocks, and player proximity. That's thoughtful — no unfair instant re-triggers.
+  </div>
+
+  <div class="analysis-block">
+    <strong>Score floor protection.</strong>
+    The code already clamps: <span class="inline-stat">score = max(0, score - 100)</span>. Score cannot go negative. That's the right call for a family game — a score of 0 is already humiliating enough, no need to push into the negative.
+  </div>
+
+  <div class="analysis-block">
+    <strong>Economy curve suggestion:</strong> add a simple multiplier system tied to catch streak. Every 3 consecutive catches without a bomb hit raises a multiplier displayed in the HUD: 1x &rarr; 1.5x &rarr; 2x. A bomb hit resets it to 1x. This creates meaningful risk/reward tension around bomb proximity — do you risk the 2x multiplier to grab that Forest Guardian near the bomb? That's a real decision.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  4. PROGRESSION & REPLAYABILITY                                        -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">4</div>
+    <h2>Progression &amp; Replayability</h2>
+    <span class="icon">&#x1F4C8;</span>
+  </div>
+
+  <div class="analysis-block">
+    <strong>Current replayability hook:</strong> the top-5 high score table. That's it. For a family game played by DAD (2270), LEO (475 &times;3), this is enough to sustain short play sessions — beating your own name on the board is a clean driver. But it's a single-dimension motivator that stales quickly once you reach your skill ceiling.
+  </div>
+
+  <div class="callout warning">
+    <strong>Retention gap:</strong> there is nothing to unlock, discover, or improve toward. A player who reaches their ceiling on day 2 has no reason to return on day 3. For a family arcade game this is acceptable — but if deeper engagement is a goal, a progression layer is needed.
+  </div>
+
+  <div class="analysis-block">
+    <strong>Low-effort replayability improvements worth considering:</strong>
+    <ul>
+      <li><strong>Daily challenge score:</strong> A fixed random seed per calendar day generates the same creature spawn positions for everyone. Dad and Leo compete on identical conditions. Adds a shared context to &ldquo;did you beat today's map?&rdquo;</li>
+      <li><strong>Creature collection log:</strong> A persistent counter (stored in a JSON sidecar) tracking how many of each type the player has caught across all sessions. Not a full Pokedex — just a simple &ldquo;Total caught: 47 Fire Drakes&rdquo; stat on the game over screen. Creates a meta-game that runs across sessions.</li>
+      <li><strong>Personal best per trainer:</strong> The game already has 4 trainers. Tie high scores to trainer — &ldquo;Trainer 2 personal best: 480&rdquo;. Gives Leo a reason to try different trainers rather than defaulting to one.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  5. MAP & SPATIAL DESIGN                                               -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">5</div>
+    <h2>Map &amp; Spatial Design</h2>
+    <span class="icon">&#x1F5FA;</span>
+  </div>
+
+  <div class="analysis-block">
+    <strong>What works well.</strong> The Overland Park neighbourhood map is the best non-code element of the game. Real streets (Antioch Rd, W 165th St, Grandview St), real landmarks (disc golf course, school campus loop road), actual ponds in plausible locations — this is genuine local pride baked into the design. The family context (Dad and Leo in Overland Park) makes this meaningfully personal. That's not something you can replicate with a generic map.
+  </div>
+
+  <div class="analysis-block">
+    <strong>Spatial gameplay analysis.</strong>
+    The map is <span class="inline-stat">1000 &times; 700</span> pixels. The player moves at <span class="inline-stat">6 px/frame</span> at 60fps = 360 px/second. They can cross the full map in under 2 seconds at sprint. This means the effective play space is <em>very small</em> — no creature is ever more than 2&ndash;3 seconds away. Distance is not a meaningful constraint. The rocks provide some collision texture, but only 6 rocks across the entire map is sparse.
+  </div>
+
+  <div class="callout warning">
+    The school campus (circular road, buildings) is the most interesting spatial zone on the map, but creatures can spawn in the school interior with no additional logic. There's no reason to treat the school differently from open grass. Zone-specific spawn rules (high-value creatures in the school, lower-value on open roads) would make the map feel intentionally designed rather than backdrop.
+  </div>
+
+  <div class="analysis-block">
+    <strong>Two ponds, zero strategic value.</strong>
+    The ponds block player movement and reject creature spawns — they're obstacles. That's fine. But they could be <em>strategic</em>. Consider: Water Sprites prefer to spawn adjacent to ponds (within 80px). Now the ponds have a gameplay function that ties to creature lore. The Forest Guardian prefers tree adjacency. These are spawn-weight adjustments that require 10 lines of code but dramatically increase map legibility as a strategic space.
+  </div>
+
+  <div class="analysis-block">
+    <strong>East wall dead zone.</strong>
+    Antioch Rd runs the full right side of the map at x=818&ndash;862. Beyond that is effectively a wall. Creatures can spawn in that 44px corridor between the road and the boundary. This creates a frustrating &ldquo;stuck in the corner&rdquo; catch scenario. Worth excluding from the creature spawn bounds explicitly (<span class="inline-stat">px = random.randint(80, 800)</span> instead of <span class="inline-stat">WIDTH - 80</span>).
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  6. JUICE & GAME FEEL                                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">6</div>
+    <h2>Juice &amp; Game Feel</h2>
+    <span class="icon">&#x2728;</span>
+  </div>
+
+  <div class="analysis-block">
+    <strong>What's already in:</strong>
+    <ul>
+      <li>Bob animation on all creatures (sin wave + phase offset per creature — correct implementation)</li>
+      <li>Pulsing catch radius indicator ring on player</li>
+      <li>Animated bomb fuse with flicker (sin-driven, good)</li>
+      <li>Floating score text (+50, &minus;100) with alpha fade and upward drift</li>
+      <li>Shadow Phantom glow pulse (separate surface, correctly pre-allocated)</li>
+      <li>Red screen flash on bomb hit</li>
+      <li>Proximity creature label (name, pts, prompt) on approach</li>
+      <li>Timer urgency styling at &le;10s (red pill, red text)</li>
+      <li>Game over score count-up animation</li>
+      <li>Bubble particles on game over screen</li>
+      <li>New high score flash + gold banner</li>
+    </ul>
+    <span class="positive">This is a well-juiced game for its scope. Whoever did this pass was thinking correctly.</span>
+  </div>
+
+  <div class="analysis-block">
+    <strong>What's missing that would matter most:</strong>
+    <ul>
+      <li><strong>Sound.</strong> There is zero audio. No catch sound, no bomb sound, no footstep, no tick during final 10 seconds. This is the single largest juice gap by far. Even placeholder beeps would transform the experience. For a Pygame project, <span class="inline-stat">pygame.mixer</span> with a free 8-bit SFX pack is a 30-minute add.</li>
+      <li><strong>Catch animation.</strong> The creature disappears instantly on SPACE. A 3&ndash;4 frame &ldquo;shrink and pop&rdquo; (scale to 0 over 100ms) on the sticker surf would make every catch feel intentional rather than arbitrary.</li>
+      <li><strong>Screen shake on bomb hit.</strong> The red flash communicates the hit, but screen shake communicates <em>impact</em>. Two different signals. A 4-frame ±8px offset on the render position would do it.</li>
+      <li><strong>Spawn arrival animation.</strong> Creatures appear instantly at a random position. A 0.3s fade-in (alpha 0 &rarr; 255) on spawn would make new waves feel like an event rather than a teleport.</li>
+      <li><strong>Streak feedback.</strong> There is no feedback for catching multiple creatures in quick succession. A &ldquo;2x STREAK&rdquo; or &ldquo;3x STREAK&rdquo; label would reward skilled play visibility.</li>
+    </ul>
+  </div>
+
+  <div class="callout positive">
+    The sticker look (white backing circle + colored border ring + creature sprite composited once at startup) is a smart art direction call. It gives the game a consistent visual language and reads well against the green map background. Don't change this.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  7. DIFFICULTY & ACCESSIBILITY                                         -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">7</div>
+    <h2>Difficulty &amp; Accessibility</h2>
+    <span class="icon">&#x267F;</span>
+  </div>
+
+  <div class="analysis-block">
+    <strong>60 seconds is correct.</strong> This is a family arcade game. 60 seconds is long enough for a meaningful session and short enough that losing doesn't feel punishing. Don't lengthen it. If you want a longer format, make it a separate mode (e.g., &ldquo;Endless&rdquo; with escalating difficulty).
+  </div>
+
+  <div class="analysis-block">
+    <strong>Difficulty scaling.</strong> Currently there is none mid-session. The game is the same difficulty from first to last second. For the specific audience (family, occasional players), this is acceptable — but a simple late-game escalation at the 45-second mark (increase bomb count from 4 to 5, creatures bob faster) would sharpen the endgame without overwhelming casual players.
+  </div>
+
+  <div class="analysis-block">
+    <strong>Movement speed of 6 px/frame.</strong> At 60fps this is 360 px/s. The map is 1000px wide. Cross time: ~2.8 seconds. This feels correct for the map scale. No change needed here.
+  </div>
+
+  <div class="analysis-block">
+    <strong>Rock collision.</strong> The <span class="inline-stat">55px</span> exclusion radius around rocks is correctly implemented with per-axis resolution (no sticky diagonal walls — this was already fixed). The creature spawn logic also excludes within 65px of rocks, which prevents unreachable spawns. Solid.
+  </div>
+
+  <div class="analysis-block">
+    <strong>Accessibility gaps:</strong>
+    <ul>
+      <li>All creature differentiation is currently color-only (plus sprite). A player with color vision deficiency loses all type-at-a-glance reading. Adding a shape indicator (letter initial on the sticker, or distinct backing shape) would help.</li>
+      <li>The name entry field limits to 5 alphanumeric characters. That's fine for arcade initials, but the prompt says &ldquo;Enter name (5 chars)&rdquo; — worth making this slightly friendlier.</li>
+      <li>No pause functionality during gameplay. For a family game with kids, a pause button is a reasonable expectation.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  8. FEATURE SUGGESTIONS (RANKED)                                       -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">8</div>
+    <h2>Feature Suggestions — Ranked by Impact vs. Effort</h2>
+    <span class="icon">&#x1F3AF;</span>
+  </div>
+
+  <div class="suggestions-grid">
+
+    <!-- 1 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#1</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag CRITICAL">CRITICAL</span>
+          Add Sound Effects
+        </div>
+        <div class="suggestion-desc">
+          Use <code>pygame.mixer.Sound</code> with a free 8-bit SFX pack (e.g., Freesound.org). Minimum viable set: catch chime (+), bomb hit (buzzer), countdown tick (final 5s), game over sting. This is the single highest-leverage addition available. The game currently has zero audio feedback — every catch and bomb hit is communicated only visually. Audio would make the experience dramatically more engaging, especially for children. Implementation is 30&ndash;45 minutes of work.
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-high">Impact: High</span>
+          <span class="meta-pill effort-low">Effort: Low</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#2</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag CRITICAL">CRITICAL</span>
+          Randomise Bomb Starting Positions
+        </div>
+        <div class="suggestion-desc">
+          Bombs currently start at four hardcoded pixel coordinates every session. Any player who plays 3+ times has memorised them. The map threat collapses entirely. Fix: in <code>reset_game()</code>, replace the hardcoded bomb list with the same randomised spawn logic already used by the relocation code (checks for lakes, rocks, player proximity). 5 lines of code. Massive replayability improvement.
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-high">Impact: High</span>
+          <span class="meta-pill effort-low">Effort: Low</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#3</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag HIGH">HIGH</span>
+          Catch Streak Multiplier (1x / 1.5x / 2x)
+        </div>
+        <div class="suggestion-desc">
+          Track consecutive catches without a bomb hit. Every 3 catches advances the multiplier by 0.5x, capped at 2x. Displayed as a small pill in the HUD (next to score). Bomb hit resets to 1x. This transforms the economy from &ldquo;catch everything&rdquo; to &ldquo;protect your streak&rdquo; — suddenly bomb proximity becomes a real strategic question. The multiplier also creates score variance between skilled and casual players without making the game harder to start.
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-high">Impact: High</span>
+          <span class="meta-pill effort-low">Effort: Low</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#4</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag HIGH">HIGH</span>
+          Late-Game Escalation at 45 Seconds
+        </div>
+        <div class="suggestion-desc">
+          When <code>time_left</code> drops below 15, increase the bomb count from 4 to 5 (spawn one extra bomb in a random valid position), increase creature bob speed multiplier from 2.0 to 3.5, and spawn 10 creatures per wave instead of 8. These three changes require ~20 lines of code. The result is a meaningful third-act intensity spike that makes the final 15 seconds feel different from the opening 45. Pairs with the existing timer urgency styling (already red at &le;10s).
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-high">Impact: High</span>
+          <span class="meta-pill effort-low">Effort: Low</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#5</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag HIGH">HIGH</span>
+          Creature Behavioral Archetypes
+        </div>
+        <div class="suggestion-desc">
+          Add a <code>behavior</code> key to each spawned creature dict. Options: <em>static</em> (current default), <em>pacer</em> (slow circular orbit), <em>blinker</em> (short teleport every 3s), <em>drifter</em> (linear movement + bounce). Assign behaviors by creature type: Fire Drake = pacer, Water Sprite = blinker, Forest Guardian = static, Electric Spark = drifter, Shadow Phantom = static + alpha fade at distance. Handled entirely in the creature update section of the game loop. No new systems. Transforms creature variety from cosmetic to mechanical.
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-high">Impact: High</span>
+          <span class="meta-pill effort-med">Effort: Med</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#6</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag HIGH">HIGH</span>
+          Catch Pop Animation
+        </div>
+        <div class="suggestion-desc">
+          When a creature is caught, instead of instant removal, play a 4-frame shrink-and-pop animation (scale the sticker surface from 1.0 to 0.0 over 100ms, then remove). Store the animating creature in a separate <code>catch_animations</code> list that draws after the main creature list. This single change makes every catch feel intentional and satisfying rather than arbitrary disappearance. Takes approximately 25 lines of code including the animation state tracking.
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-high">Impact: High</span>
+          <span class="meta-pill effort-low">Effort: Low</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#7</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag MED">MED</span>
+          Zone-Based Creature Spawn Weighting
+        </div>
+        <div class="suggestion-desc">
+          Apply simple spawn weights based on map zone: Water Sprites prefer within 80px of a pond, Forest Guardians prefer within 60px of any tree position, Shadow Phantoms prefer the school interior (x&lt;350, y&lt;300). All others spawn anywhere. This requires checking zone membership during <code>spawn_creatures()</code> and using <code>random.choices()</code> with weights per spawn position. Makes the map feel authored rather than random — players learn &ldquo;go near the pond for Water Sprites, school for Phantoms.&rdquo;
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-med">Impact: Med</span>
+          <span class="meta-pill effort-med">Effort: Med</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#8</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag MED">MED</span>
+          Screen Shake on Bomb Hit
+        </div>
+        <div class="suggestion-desc">
+          The red flash communicates that damage happened. Screen shake communicates <em>impact weight</em>. They're different signals and both are needed. Implementation: on bomb hit, set a <code>shake_frames = 6</code> counter and a <code>shake_magnitude = 8</code>. Each frame while shaking, offset the world blit by <code>(random.randint(-mag, mag), random.randint(-mag, mag))</code> and decay magnitude. This is a 10-line addition that dramatically increases the visceral feedback on penalty hits.
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-med">Impact: Med</span>
+          <span class="meta-pill effort-low">Effort: Low</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#9</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag MED">MED</span>
+          Spawn Arrival Fade-In Animation
+        </div>
+        <div class="suggestion-desc">
+          New creature waves appear instantly. A 0.4-second alpha 0&rarr;255 fade on spawn makes waves feel like an event rather than a system tick. Track a <code>spawn_alpha</code> value per creature dict (0.0&ndash;1.0, increments each frame). Use it to call <code>set_alpha()</code> on the sticker surf blit. The brief window of semi-transparency on new arrivals also creates a fair-play moment — creatures can't be caught at &lt;50% alpha. This prevents instant catch-on-spawn.
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-med">Impact: Med</span>
+          <span class="meta-pill effort-low">Effort: Low</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#10</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag MED">MED</span>
+          Pause Menu
+        </div>
+        <div class="suggestion-desc">
+          ESC during play goes directly to game over / character select (depending on implementation). For a family game, a proper pause state (ESC = pause, press any key or click Resume to continue) is expected UX. Children will need to pause. Parents will need to pause. Without it, any interruption causes either rage-quit or timer waste. Implementation: add <code>"paused"</code> game state, draw a semi-transparent overlay with &ldquo;PAUSED&rdquo; text and resume/quit options. Stop timer progression while paused.
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-med">Impact: Med</span>
+          <span class="meta-pill effort-low">Effort: Low</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 11 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#11</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag MED">MED</span>
+          Per-Trainer Personal Best Scores
+        </div>
+        <div class="suggestion-desc">
+          Extend <code>highscores.txt</code> format from <code>NAME SCORE</code> to <code>NAME SCORE TRAINER_IDX</code>. On the game over screen, show the player's personal best with the active trainer alongside the global top-5. This gives players a reason to try all four trainers and creates micro-competition between family members using different trainers. Backward compatible — lines without trainer index default to 0.
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-med">Impact: Med</span>
+          <span class="meta-pill effort-low">Effort: Low</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 12 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#12</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag LOW">LOW</span>
+          Restrict Creature Spawn Bounds to Exclude East Wall Corridor
+        </div>
+        <div class="suggestion-desc">
+          Change spawn X upper bound from <code>WIDTH - 80 = 920</code> to <code>800</code> in <code>spawn_creatures()</code>. This excludes the Antioch Rd corridor (x=818+) and the narrow strip between road and right boundary. Prevents frustrating corner-catch scenarios where the player is squeezed between the road edge and the map wall. One number change.
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-low">Impact: Low</span>
+          <span class="meta-pill effort-low">Effort: Low</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 13 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#13</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag LOW">LOW</span>
+          Spawn Delay (0.8s) After Wave Clear
+        </div>
+        <div class="suggestion-desc">
+          When the creature pool hits 0, wait 0.8 seconds before calling <code>spawn_creatures(8)</code>. Track this with a <code>spawn_delay_timer</code> float decremented by dt. The brief empty-map moment creates a pacing beat — players scan for the next wave arrival, which gives the spawn animation (if added, see #9) a moment to be visible. Without this, instant respawn makes wave clearing feel like flipping a light switch.
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-low">Impact: Low</span>
+          <span class="meta-pill effort-low">Effort: Low</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 14 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#14</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag LOW">LOW</span>
+          Cumulative Catch Counter in Game Over Screen
+        </div>
+        <div class="suggestion-desc">
+          Add a JSON sidecar file (<code>stats.json</code>) tracking total creatures caught per type across all sessions. Display on the game over screen as a small &ldquo;All-time: 47 caught&rdquo; line. This creates a persistent meta-game without needing a full save system. Family members can check their grand total across sessions, which encourages return play even after the high score table is saturated.
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-low">Impact: Low</span>
+          <span class="meta-pill effort-low">Effort: Low</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 15 -->
+    <div class="suggestion-card">
+      <div class="suggestion-rank">#15</div>
+      <div class="suggestion-body">
+        <div class="suggestion-title">
+          <span class="tag LOW">LOW</span>
+          Type Initial on Sticker for Colorblind Accessibility
+        </div>
+        <div class="suggestion-desc">
+          Render a small letter initial (F, W, G, E, S) in the center of each creature's backing circle as a fallback when no sprite image is present. Even when sprites are present, adding the initial as a dark letter in the bottom-right of the sticker (tiny_font, 80% alpha) would give color-blind players a text-based type indicator without cluttering the design. One additional blit per creature per frame.
+        </div>
+        <div class="suggestion-meta">
+          <span class="meta-pill impact-low">Impact: Low</span>
+          <span class="meta-pill effort-low">Effort: Low</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  9. REFERENCE GAME COMPARISON                                          -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">9</div>
+    <h2>Comparison to Reference Games</h2>
+    <span class="icon">&#x1F4CA;</span>
+  </div>
+
+  <div class="compare-table-wrapper">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Pokemon GO</th>
+          <th>Classic Arcade (e.g., Pac-Man)</th>
+          <th>GeoCatch — Current</th>
+          <th>Gap / Opportunity</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Session Length</td>
+          <td>Indefinite / player-controlled</td>
+          <td>1&ndash;3 min escalating</td>
+          <td class="tie">60 seconds fixed</td>
+          <td>Correct for family arcade. No change needed.</td>
+        </tr>
+        <tr>
+          <td>Creature Differentiation</td>
+          <td class="win">Deep (IV, moves, type, rarity)</td>
+          <td>N/A (different enemy types have behavior)</td>
+          <td class="lose">Points only. No behavior.</td>
+          <td>Add behavior archetypes (see #5 above). This is the biggest design gap.</td>
+        </tr>
+        <tr>
+          <td>Spatial Strategy</td>
+          <td class="win">Real-world geography, biome spawns</td>
+          <td class="win">Maze creates route decisions</td>
+          <td class="tie">Good map, no zone logic</td>
+          <td>Zone-based spawn weighting (see #7). Ponds and trees should mean something.</td>
+        </tr>
+        <tr>
+          <td>Risk / Reward</td>
+          <td>Catch rate % (ball type, status)</td>
+          <td class="win">Ghost risk vs. pellet reward</td>
+          <td class="tie">Bomb -100 vs. creature value</td>
+          <td>Streak multiplier (see #3) would match Pac-Man ghost-eating risk-reward depth.</td>
+        </tr>
+        <tr>
+          <td>Tension Curve</td>
+          <td>Escalates by level / rarity</td>
+          <td class="win">Speed ramp + fewer safe zones</td>
+          <td class="lose">Flat 60s. No escalation.</td>
+          <td>Late-game bomb count increase + creature speed (see #4).</td>
+        </tr>
+        <tr>
+          <td>Audio Feedback</td>
+          <td class="win">Full SFX + music</td>
+          <td class="win">Iconic SFX integral to feel</td>
+          <td class="lose">Zero audio.</td>
+          <td>This is the most urgent single gap (see #1). Pygame mixer + free SFX pack.</td>
+        </tr>
+        <tr>
+          <td>Progression</td>
+          <td class="win">XP, candy, Pokedex, events</td>
+          <td>High score only</td>
+          <td class="lose">High score only</td>
+          <td>Per-trainer scores + cumulative catch counter = 80% of the retention value for 20% of the work.</td>
+        </tr>
+        <tr>
+          <td>Catch Feel</td>
+          <td class="win">Ball throw animation, catch ring</td>
+          <td>N/A</td>
+          <td class="lose">Instant disappear</td>
+          <td>Pop animation on catch (see #6). Low effort, high feel improvement.</td>
+        </tr>
+        <tr>
+          <td>Local Identity</td>
+          <td>Generic real-world POIs</td>
+          <td>N/A</td>
+          <td class="win">Overland Park named streets, disc golf, real ponds</td>
+          <td>This is a genuine differentiator. The personal context is the game's best feature. Lean into it.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="analysis-block" style="margin-top:16px;">
+    <strong>Bottom line on reference comparison:</strong> GeoCatch is not trying to be Pokemon GO — it's a 60-second arcade game with creature-catching as its verb, not a live-service creature collector. Judged against arcade games (Pac-Man, classic high-score chasers), its closest peers, it is short one tension system (the flat curve) and entirely missing audio. Those two gaps are what separate it from &ldquo;game I'll play twice&rdquo; and &ldquo;game I'll play twenty times.&rdquo;
+    <br><br>
+    What it does better than any of those reference games: <span class="positive">it's personal</span>. The Overland Park neighbourhood, the disc golf course, the specific street names — no commercial product gives a family game that's literally set in their backyard. That's not something you get from Pokemon GO. Protect and deepen that identity in any future development.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  IMPLEMENTATION PRIORITY MATRIX                                        -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">+</div>
+    <h2>Recommended Implementation Order</h2>
+    <span class="icon">&#x1F527;</span>
+  </div>
+
+  <div class="analysis-block">
+    If you want to run one focused development pass to bring this game to its next quality tier, do these in order:
+    <br><br>
+    <strong>Pass A — 2 hours, massive feel improvement:</strong>
+    <ol style="margin: 10px 0 0 20px;">
+      <li style="margin-bottom:6px;"><span class="tag CRITICAL">CRITICAL</span> Randomise bomb starting positions (5 lines)</li>
+      <li style="margin-bottom:6px;"><span class="tag CRITICAL">CRITICAL</span> Add sound effects via pygame.mixer (30&ndash;45 min including asset download)</li>
+      <li style="margin-bottom:6px;"><span class="tag HIGH">HIGH</span> Catch pop animation (25 lines)</li>
+      <li style="margin-bottom:6px;"><span class="tag MED">MED</span> Screen shake on bomb hit (10 lines)</li>
+    </ol>
+    <br>
+    <strong>Pass B — 4 hours, adds strategic depth:</strong>
+    <ol style="margin: 10px 0 0 20px;">
+      <li style="margin-bottom:6px;"><span class="tag HIGH">HIGH</span> Catch streak multiplier with HUD display</li>
+      <li style="margin-bottom:6px;"><span class="tag HIGH">HIGH</span> Late-game escalation at 45s (5th bomb, faster bob, +2 creatures/wave)</li>
+      <li style="margin-bottom:6px;"><span class="tag MED">MED</span> Pause state (ESC = pause, not quit)</li>
+      <li style="margin-bottom:6px;"><span class="tag LOW">LOW</span> East wall spawn bound fix (1 number change)</li>
+    </ol>
+    <br>
+    <strong>Pass C — 1 day, long-term retention:</strong>
+    <ol style="margin: 10px 0 0 20px;">
+      <li style="margin-bottom:6px;"><span class="tag HIGH">HIGH</span> Creature behavioral archetypes (pacer, blinker, drifter, fader)</li>
+      <li style="margin-bottom:6px;"><span class="tag MED">MED</span> Zone-based spawn weighting (ponds, trees, school)</li>
+      <li style="margin-bottom:6px;"><span class="tag MED">MED</span> Per-trainer personal best scores</li>
+      <li style="margin-bottom:6px;"><span class="tag LOW">LOW</span> Cumulative catch counter (stats.json sidecar)</li>
+    </ol>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<div class="footer">
+  GeoCatch Game Design Review &mdash; Authored by VECTOR &mdash; Based on full source analysis of geocatch_pygame.py
+</div>
+
+</body>
+</html>
