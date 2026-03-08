@@ -1,781 +1,1016 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GeoCatch Pygame — QA Regression Report (Pass 4)</title>
-<style>
-  :root {
-    --bg:        #1a1a2e;
-    --panel:     #16213e;
-    --card:      #0f3460;
-    --border:    #533483;
-    --accent:    #ff6b35;
-    --gold:      #ffd700;
-    --white:     #f0f0f0;
-    --muted:     #9090b0;
-    --crit:      #ff3b30;
-    --high:      #ff9f0a;
-    --med:       #30d158;
-    --low:       #64d2ff;
-    --pass:      #30d158;
-    --fail:      #ff3b30;
-    --partial:   #ff9f0a;
-    --info:      #64d2ff;
-    --radius:    8px;
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--bg);
-    color: var(--white);
-    font-family: "Segoe UI", Arial, sans-serif;
-    font-size: 14px;
-    line-height: 1.6;
-    padding: 32px 24px;
-  }
-  h1 { font-size: 2rem; color: var(--gold); letter-spacing: 1px; margin-bottom: 4px; }
-  h2 { font-size: 1.25rem; color: var(--accent); margin: 36px 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
-  h3 { font-size: 1rem; color: var(--gold); margin: 20px 0 8px; }
-  .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 28px; }
-  /* Dashboard */
-  .dashboard {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 14px;
-    margin-bottom: 32px;
-  }
-  .dash-card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px 12px;
-    text-align: center;
-  }
-  .dash-card .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-  .dash-card .value { font-size: 2rem; font-weight: 700; }
-  .v-crit  { color: var(--crit); }
-  .v-high  { color: var(--high); }
-  .v-med   { color: var(--med); }
-  .v-low   { color: var(--low); }
-  .v-white { color: var(--white); }
-  /* Priority badges */
-  .badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-  .b-crit    { background: #4a0a0a; color: var(--crit); border: 1px solid var(--crit); }
-  .b-high    { background: #3a2800; color: var(--high); border: 1px solid var(--high); }
-  .b-med     { background: #0a2a14; color: var(--med);  border: 1px solid var(--med); }
-  .b-low     { background: #0a1e2e; color: var(--low);  border: 1px solid var(--low); }
-  .b-pass    { background: #0a2a14; color: var(--pass); border: 1px solid var(--pass); }
-  .b-fail    { background: #4a0a0a; color: var(--fail); border: 1px solid var(--fail); }
-  .b-partial { background: #3a2800; color: var(--partial); border: 1px solid var(--partial); }
-  .b-info    { background: #0a1e2e; color: var(--info); border: 1px solid var(--info); }
-  /* Finding cards */
-  .finding {
-    background: var(--panel);
-    border-left: 4px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px 18px;
-    margin-bottom: 14px;
-  }
-  .finding.crit  { border-left-color: var(--crit); }
-  .finding.high  { border-left-color: var(--high); }
-  .finding.med   { border-left-color: var(--med); }
-  .finding.low   { border-left-color: var(--low); }
-  .finding-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
-  .finding-id { font-size: 0.75rem; color: var(--muted); font-family: monospace; }
-  .finding-title { font-weight: 600; color: var(--white); }
-  .finding p { color: var(--muted); font-size: 0.9rem; margin-bottom: 6px; }
-  .finding p strong { color: var(--white); }
-  .finding code, .finding pre { font-family: "Cascadia Code", "Consolas", monospace; }
-  pre {
-    background: #0a0a18;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 12px 14px;
-    font-size: 0.82rem;
-    overflow-x: auto;
-    margin: 8px 0;
-    color: #c8c8e8;
-    line-height: 1.5;
-  }
-  code { background: #0a0a18; padding: 1px 5px; border-radius: 3px; font-size: 0.82rem; color: #c8c8e8; }
-  /* Test tables */
-  .test-table-wrap { overflow-x: auto; margin-bottom: 24px; }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
-  }
-  th {
-    background: var(--card);
-    color: var(--gold);
-    padding: 10px 12px;
-    text-align: left;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 1px solid var(--border);
-  }
-  td {
-    padding: 9px 12px;
-    border-bottom: 1px solid #1e1e3a;
-    color: var(--white);
-    vertical-align: top;
-  }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: rgba(255,255,255,0.03); }
-  .td-id { color: var(--muted); font-family: monospace; font-size: 0.8rem; white-space: nowrap; }
-  /* Verdict bar */
-  .verdict-bar {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px 18px;
-    margin-bottom: 28px;
-    flex-wrap: wrap;
-  }
-  .verdict-bar .label { font-size: 0.85rem; color: var(--muted); }
-  .verdict-bar .result { font-size: 1.1rem; font-weight: 700; }
-  /* Section summary strip */
-  .section-summary {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 14px;
-  }
-  /* TOC */
-  .toc { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 32px; }
-  .toc ul { list-style: none; padding-left: 0; }
-  .toc li { padding: 3px 0; }
-  .toc a { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
-  .toc a:hover { text-decoration: underline; }
-  /* Interaction matrix */
-  .matrix td, .matrix th { text-align: center; font-size: 0.8rem; }
-  .matrix td:first-child { text-align: left; }
-  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
-  .note { background: #0a1e2e; border-left: 3px solid var(--info); border-radius: 4px; padding: 10px 14px; color: var(--muted); font-size: 0.88rem; margin-bottom: 12px; }
-  .note strong { color: var(--info); }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GeoCatch Pygame -- QA Regression Report (Pass 5)</title>
+  <style>
+    :root {
+      --bg:        #0d0f1e;
+      --bg2:       #14172b;
+      --bg3:       #1c2040;
+      --border:    #2a2e52;
+      --text:      #d4d8f0;
+      --muted:     #7880aa;
+      --accent:    #ff6b35;
+      --gold:      #ffd700;
+      --green:     #4caf50;
+      --crit-bg:   #3a0a0a;
+      --crit-bd:   #cc2222;
+      --crit-txt:  #ff5555;
+      --high-bg:   #2e1a00;
+      --high-bd:   #cc7700;
+      --high-txt:  #ffaa33;
+      --med-bg:    #1a1e00;
+      --med-bd:    #9aaa00;
+      --med-txt:   #d4e040;
+      --low-bg:    #001820;
+      --low-bd:    #2288aa;
+      --low-txt:   #55bbdd;
+      --pass-bg:   #0a2010;
+      --pass-bd:   #2a8a40;
+      --pass-txt:  #55cc77;
+      --warn-bg:   #201800;
+      --warn-bd:   #aa8800;
+      --warn-txt:  #ddbb33;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 32px 24px;
+    }
+    h1 { font-size: 28px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+    h2 { font-size: 18px; font-weight: 600; color: var(--gold); margin: 28px 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+    h3 { font-size: 15px; font-weight: 600; color: #b0b8e0; margin: 0 0 8px; }
+    .meta { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+    .meta strong { color: var(--text); }
+
+    .verdict {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: var(--warn-bg);
+      border: 2px solid var(--warn-bd);
+      border-radius: 12px;
+      padding: 18px 24px;
+      margin-bottom: 28px;
+    }
+    .verdict-label {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--warn-txt);
+      letter-spacing: 2px;
+      white-space: nowrap;
+    }
+    .verdict-detail { font-size: 13px; color: var(--muted); }
+    .verdict-detail strong { color: var(--text); }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .summary-cell {
+      border-radius: 10px;
+      padding: 14px 18px;
+      text-align: center;
+    }
+    .summary-cell .count { font-size: 36px; font-weight: 800; }
+    .summary-cell .label { font-size: 12px; font-weight: 600; letter-spacing: 1px; margin-top: 2px; }
+    .cell-crit { background: var(--crit-bg); border: 1px solid var(--crit-bd); }
+    .cell-crit .count, .cell-crit .label { color: var(--crit-txt); }
+    .cell-high { background: var(--high-bg); border: 1px solid var(--high-bd); }
+    .cell-high .count, .cell-high .label { color: var(--high-txt); }
+    .cell-med  { background: var(--med-bg);  border: 1px solid var(--med-bd);  }
+    .cell-med  .count, .cell-med  .label { color: var(--med-txt); }
+    .cell-low  { background: var(--low-bg);  border: 1px solid var(--low-bd);  }
+    .cell-low  .count, .cell-low  .label { color: var(--low-txt); }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    .badge-crit { background: var(--crit-bg); border: 1px solid var(--crit-bd); color: var(--crit-txt); }
+    .badge-high { background: var(--high-bg); border: 1px solid var(--high-bd); color: var(--high-txt); }
+    .badge-med  { background: var(--med-bg);  border: 1px solid var(--med-bd);  color: var(--med-txt); }
+    .badge-low  { background: var(--low-bg);  border: 1px solid var(--low-bd);  color: var(--low-txt); }
+    .badge-pass { background: var(--pass-bg); border: 1px solid var(--pass-bd); color: var(--pass-txt); }
+
+    .issue {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 22px;
+      margin-bottom: 16px;
+    }
+    .issue-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .issue-id { font-size: 12px; color: var(--muted); font-family: monospace; white-space: nowrap; padding-top: 2px; }
+    .issue-title { font-size: 15px; font-weight: 600; color: var(--text); }
+    .issue-body { font-size: 13px; color: var(--muted); }
+    .issue-body p { margin-bottom: 8px; }
+    .issue-body strong { color: var(--text); }
+    .issue-body code {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: 12px;
+      color: #a8c4ff;
+    }
+    .issue-body pre {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: 12px;
+      color: #a8c4ff;
+      overflow-x: auto;
+      margin: 8px 0;
+    }
+    .field-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .field-block { margin-bottom: 10px; }
+    .result-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+    .result-box { background: var(--bg3); border-radius: 6px; padding: 10px 12px; border: 1px solid var(--border); font-size: 13px; }
+    .result-box.expected { border-left: 3px solid var(--pass-bd); }
+    .result-box.actual   { border-left: 3px solid var(--crit-bd); }
+
+    .pass-section {
+      background: var(--pass-bg);
+      border: 1px solid var(--pass-bd);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 12px;
+    }
+    .pass-section h3 { color: var(--pass-txt); margin-bottom: 6px; }
+    .pass-section ul { margin-left: 18px; color: #80c890; font-size: 13px; }
+    .pass-section ul li { margin-bottom: 3px; }
+
+    .area-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin: 30px 0 10px;
+      padding: 4px 0;
+      border-bottom: 1px dashed var(--border);
+    }
+
+    @media (min-width: 900px) {
+      .layout { display: grid; grid-template-columns: 260px 1fr; gap: 28px; }
+      .sidebar { position: sticky; top: 24px; align-self: start; }
+    }
+    .toc { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+    .toc h3 { margin-bottom: 10px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    .toc a { display: block; color: var(--muted); text-decoration: none; font-size: 13px; padding: 3px 0; }
+    .toc a:hover { color: var(--text); }
+    .toc a .badge { margin-right: 4px; }
+  </style>
 </head>
 <body>
 
-<h1>GeoCatch Pygame — QA Regression Report</h1>
-<p class="subtitle">Pass 4 &nbsp;|&nbsp; Auditor: QALeadMaster &nbsp;|&nbsp; File: <code>geocatch_pygame.py</code> &nbsp;|&nbsp; Date: 2026-03-08</p>
-
-<!-- ═══════════════════════════ VERDICT ═══════════════════════════ -->
-<div class="verdict-bar">
-  <span class="label">Overall Verdict:</span>
-  <span class="result" style="color:var(--high)">CONDITIONAL PASS</span>
-  <span class="label">— 2 HIGH defects require fixes before release; all CRITs resolved or absent; 5 MED / 4 LOW findings documented.</span>
+<h1>GeoCatch Pygame -- QA Regression Report</h1>
+<div class="meta">
+  <strong>Pass:</strong> 5 &nbsp;|&nbsp;
+  <strong>Date:</strong> 2026-03-08 &nbsp;|&nbsp;
+  <strong>Auditor:</strong> QALeadMaster &nbsp;|&nbsp;
+  <strong>Source:</strong> <code>C:\Users\Rafa\geocatch\geocatch_pygame.py</code> &nbsp;|&nbsp;
+  <strong>Method:</strong> Full static code audit (1385 lines reviewed)
 </div>
 
-<!-- ═══════════════════════════ DASHBOARD ═══════════════════════════ -->
-<div class="dashboard">
-  <div class="dash-card"><div class="label">Critical</div><div class="value v-crit">0</div></div>
-  <div class="dash-card"><div class="label">High</div><div class="value v-high">2</div></div>
-  <div class="dash-card"><div class="label">Medium</div><div class="value v-med">5</div></div>
-  <div class="dash-card"><div class="label">Low</div><div class="value v-low">4</div></div>
-  <div class="dash-card"><div class="label">Test Cases</div><div class="value v-white">52</div></div>
-  <div class="dash-card"><div class="label">Pass</div><div class="value" style="color:var(--pass)">43</div></div>
-  <div class="dash-card"><div class="label">Fail</div><div class="value" style="color:var(--fail)">6</div></div>
-  <div class="dash-card"><div class="label">Partial</div><div class="value" style="color:var(--partial)">3</div></div>
+<div class="verdict">
+  <div class="verdict-label">CONDITIONAL PASS</div>
+  <div class="verdict-detail">
+    The end screen redesign is functionally correct. All previously reported critical issues are resolved.
+    No blocking defects were found in the Creature Showcase logic, score-saving flow, tier messages,
+    firework particles, or navigation. However, <strong>2 HIGH-severity performance defects</strong>
+    (per-frame surface allocations in the game-over draw loop and a discarded fade-alpha on firework
+    particles) and <strong>4 MED-severity</strong> issues require resolution before a clean PASS verdict
+    can be issued. All 4 LOW items are cosmetic or edge-case risks that can be deferred.
+  </div>
 </div>
 
-<!-- ═══════════════════════════ TOC ═══════════════════════════ -->
-<div class="toc">
-  <strong style="color:var(--gold)">Contents</strong>
+<div class="summary-grid">
+  <div class="summary-cell cell-crit"><div class="count">0</div><div class="label">CRITICAL</div></div>
+  <div class="summary-cell cell-high"><div class="count">2</div><div class="label">HIGH</div></div>
+  <div class="summary-cell cell-med" ><div class="count">4</div><div class="label">MEDIUM</div></div>
+  <div class="summary-cell cell-low" ><div class="count">4</div><div class="label">LOW</div></div>
+</div>
+
+<div class="layout">
+
+<div class="sidebar">
+  <div class="toc">
+    <h3>Contents</h3>
+    <a href="#issues"><strong>Open Issues (10)</strong></a>
+    <a href="#high-01"><span class="badge badge-high">HIGH</span>HIGH-01 -- Game-over per-frame renders</a>
+    <a href="#high-02"><span class="badge badge-high">HIGH</span>HIGH-02 -- Firework alpha discarded</a>
+    <a href="#med-01"><span class="badge badge-med">MED</span>MED-01 -- Proximity label per-frame render</a>
+    <a href="#med-02"><span class="badge badge-med">MED</span>MED-02 -- Score count-up per-frame render</a>
+    <a href="#med-03"><span class="badge badge-med">MED</span>MED-03 -- Redundant bg pulse double-fill</a>
+    <a href="#med-04"><span class="badge badge-med">MED</span>MED-04 -- Streak pill per-frame alloc</a>
+    <a href="#low-01"><span class="badge badge-low">LOW</span>LOW-01 -- K_1-K_4 unicode crash risk</a>
+    <a href="#low-02"><span class="badge badge-low">LOW</span>LOW-02 -- _cs_popup persists across sessions</a>
+    <a href="#low-03"><span class="badge badge-low">LOW</span>LOW-03 -- Blinker spawn_alpha not reset</a>
+    <a href="#low-04"><span class="badge badge-low">LOW</span>LOW-04 -- Tier message gap at unique=1</a>
+    <a href="#passes"><strong>Confirmed Passes</strong></a>
+  </div>
+</div>
+
+<div>
+
+<h2 id="issues">Open Issues</h2>
+
+<!-- ===== HIGH-01 ===== -->
+<div class="area-label">Performance -- Game Over Draw Loop</div>
+
+<div class="issue" id="high-01">
+  <div class="issue-header">
+    <span class="issue-id">HIGH-01</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="issue-title">[GameOver] Multiple static label surfaces allocated via font.render() on every draw frame</span>
+  </div>
+  <div class="issue-body">
+    <div class="field-block">
+      <div class="field-label">Description</div>
+      <p>
+        The game-over draw block (lines 1176-1208) contains eight <code>font.render()</code> calls whose
+        output text never changes within a single game-over session. These surfaces are allocated fresh
+        on every frame at 60 FPS:
+      </p>
+      <pre>
+# Line 1176 (empty leaderboard path)
+_no = tiny_font.render("No scores yet!", True, (120, 120, 130))
+
+# Lines 1183-1186 (score_saved path)
+_sv1 = small_font.render("Saved!", True, (100, 230, 100))
+_sv2 = tiny_font.render("Press R to play again", True, (180, 180, 190))
+
+# Lines 1188-1191 (score == 0 path)
+_z1 = small_font.render("No score", True, (160, 160, 170))
+_z2 = tiny_font.render("Press R to try again", True, (140, 140, 150))
+
+# Lines 1193-1196 (name entry path -- static labels only; _name_surf on line 1204 is correctly dynamic)
+_ne_title = tiny_font.render("SAVE YOUR SCORE", True, SCORE_GOLD)
+_ne_lbl   = tiny_font.render("Name (max 5 chars):", True, (160, 160, 170))
+
+# Line 1207 (shown only when len(name_input) > 0, still static content)
+_enter_hint = tiny_font.render("Press ENTER to save", True, (140, 200, 140))</pre>
+      <p>
+        At 60 FPS this produces up to <strong>480 surface allocations per minute</strong> for text
+        that does not change. The existing <code>_go_cache</code> dict (built once at game-over entry,
+        line 930) already pre-renders <code>tier</code>, <code>count</code>, <code>nav_r</code>,
+        <code>nav_q</code>, <code>pb</code>, <code>at</code>, and <code>lb_lines</code>.
+        The surfaces above should follow the same pattern.
+      </p>
+      <p>
+        Note: <code>_name_surf</code> at line 1204 is intentionally dynamic (it displays the live
+        blinking cursor and the current name_input value) and does NOT need to be cached.
+      </p>
+    </div>
+    <div class="field-block">
+      <div class="field-label">Steps to Reproduce</div>
+      <p>1. Finish any game and observe the game-over screen.<br>
+         2. Profile with a Python line profiler (e.g., <code>cProfile</code> or <code>py-spy</code>).<br>
+         3. Each of the eight listed <code>render()</code> calls fires at 60 FPS regardless of state.</p>
+    </div>
+    <div class="result-row">
+      <div class="result-box expected">
+        <div class="field-label">Expected</div>
+        Static label surfaces pre-rendered once inside the <code>_go_cache</code> construction block
+        (line 930) and blitted by reference each frame, consistent with how all other game-over
+        labels are already handled.
+      </div>
+      <div class="result-box actual">
+        <div class="field-label">Actual</div>
+        All eight surfaces allocated via <code>font.render()</code> on every draw frame, producing
+        excess garbage-collection pressure and wasted CPU at 60 FPS.
+      </div>
+    </div>
+    <div class="field-block" style="margin-top:12px;">
+      <div class="field-label">Recommended Fix</div>
+      <p>Add all static variants to <code>_go_cache</code> at game-over entry:</p>
+      <pre>
+# Inside the _go_cache construction block (around line 930):
+_go_cache["saved_lbl"]    = small_font.render("Saved!", True, (100, 230, 100))
+_go_cache["saved_hint"]   = tiny_font.render("Press R to play again", True, (180, 180, 190))
+_go_cache["noscore_lbl"]  = small_font.render("No score", True, (160, 160, 170))
+_go_cache["noscore_hint"] = tiny_font.render("Press R to try again", True, (140, 140, 150))
+_go_cache["ne_title"]     = tiny_font.render("SAVE YOUR SCORE", True, SCORE_GOLD)
+_go_cache["ne_lbl"]       = tiny_font.render("Name (max 5 chars):", True, (160, 160, 170))
+_go_cache["enter_hint"]   = tiny_font.render("Press ENTER to save", True, (140, 200, 140))
+_go_cache["lb_empty"]     = tiny_font.render("No scores yet!", True, (120, 120, 130))
+
+# In the draw block, replace e.g.:
+#   _sv1 = small_font.render("Saved!", ...)
+# with:
+#   _sv1 = _go_cache["saved_lbl"]</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ===== HIGH-02 ===== -->
+<div class="issue" id="high-02">
+  <div class="issue-header">
+    <span class="issue-id">HIGH-02</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="issue-title">[GameOver] Firework particles do not fade -- computed _fw_alpha is calculated but never applied</span>
+  </div>
+  <div class="issue-body">
+    <div class="field-block">
+      <div class="field-label">Description</div>
+      <p>
+        Lines 1077-1082 compute a per-particle fade value based on remaining lifetime and then draw
+        the particle. However, the alpha value is never applied to the drawn circle:
+      </p>
+      <pre>
+# Line 1078 -- alpha computed correctly
+_fw_alpha = max(0, min(255, int(255 * fw["life"] / fw["max_life"])))
+
+# Line 1079 -- (*fw["color"],) unpacks a plain RGB 3-tuple; the trailing comma adds nothing.
+# pygame.draw.circle on a non-SRCALPHA surface ignores any alpha in the color tuple.
+pygame.draw.circle(screen, (*fw["color"], ), (int(fw["x"]), int(fw["y"])), fw["r"])
+
+# Line 1080-1082 -- _fw_alpha is used only as a threshold condition, never as a color component
+if _fw_alpha &lt; 200:
+    pygame.draw.circle(screen, (*fw["color"],),
+        (int(fw["x"] - fw["vx"]*0.02), int(fw["y"] - fw["vy"]*0.02)), max(1, fw["r"]-1))</pre>
+      <p>
+        Because <code>screen</code> is a plain (non-SRCALPHA) surface created via
+        <code>pygame.display.set_mode()</code>, <code>pygame.draw.circle</code> ignores any
+        fourth alpha component in the color argument. The result is that every firework particle
+        maintains full brightness from spawn until its <code>life</code> reaches zero, at which
+        point it vanishes with no fade-out whatsoever. The intended "particle decay" visual
+        effect is completely absent. <code>_fw_alpha</code> is a dead variable.
+      </p>
+    </div>
+    <div class="field-block">
+      <div class="field-label">Steps to Reproduce</div>
+      <p>1. Achieve a new high score on a fresh run (score &gt; existing minimum, or any score
+            if leaderboard has fewer than 5 entries).<br>
+         2. Observe firework particles on the game-over screen.<br>
+         3. All particles maintain full color intensity and abruptly disappear when their
+            <code>life</code> timer expires. No fade-out is visible.</p>
+    </div>
+    <div class="result-row">
+      <div class="result-box expected">
+        <div class="field-label">Expected</div>
+        Firework particles visibly fade from full brightness to black (background color) over
+        their lifetime, producing a natural decay effect that smoothly removes particles
+        from the scene.
+      </div>
+      <div class="result-box actual">
+        <div class="field-label">Actual</div>
+        Particles render at full opacity for their entire lifetime and disappear abruptly on
+        the frame their <code>life</code> value drops to zero or below.
+        <code>_fw_alpha</code> is computed but discarded.
+      </div>
+    </div>
+    <div class="field-block" style="margin-top:12px;">
+      <div class="field-label">Recommended Fix</div>
+      <p>
+        Since <code>screen</code> is a non-SRCALPHA surface, simulate fade by linearly
+        interpolating each color channel toward the background color <code>(14, 16, 32)</code>:
+      </p>
+      <pre>
+for fw in _go_fireworks:
+    _t = fw["life"] / fw["max_life"]   # 1.0 = freshly spawned, 0.0 = dying
+    _bg = (14, 16, 32)
+    _fc = tuple(int(_bg[i] + (fw["color"][i] - _bg[i]) * _t) for i in range(3))
+    pygame.draw.circle(screen, _fc, (int(fw["x"]), int(fw["y"])), fw["r"])
+    # Trail dot (shown when particle is more than 20% faded)
+    if _t < 0.8:
+        pygame.draw.circle(screen, _fc,
+            (int(fw["x"] - fw["vx"]*0.02), int(fw["y"] - fw["vy"]*0.02)),
+            max(1, fw["r"] - 1))</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MED-01 ===== -->
+<div class="area-label">Performance -- Playing State Draw Loop</div>
+
+<div class="issue" id="med-01">
+  <div class="issue-header">
+    <span class="issue-id">MED-01</span>
+    <span class="badge badge-med">MED</span>
+    <span class="issue-title">[Playing] Proximity creature label calls prox_font.render() unconditionally every frame while in range</span>
+  </div>
+  <div class="issue-body">
+    <div class="field-block">
+      <div class="field-label">Description</div>
+      <p>
+        Line 1312 renders the proximity label surface on every frame that the player is within
+        55 pixels of any creature:
+      </p>
+      <pre>label_text = prox_font.render(label_str, True, WHITE)   # line 1312, fires at 60 FPS</pre>
+      <p>
+        The label content <code>"{name} -- {points} pts  |  SPACE to catch"</code> only changes
+        when the <em>closest creature</em> changes identity -- which happens at most a few times
+        per wave. However, the surface is re-created on every single frame while proximity is
+        active, which during normal play can persist for several continuous seconds. This is
+        inconsistent with the score pill and timer pill which are already correctly cached using
+        the <code>reset_game._sc_cache</code> / <code>reset_game._tm_cache</code> pattern
+        (lines 1357 and 1377).
+      </p>
+    </div>
+    <div class="field-block">
+      <div class="field-label">Steps to Reproduce</div>
+      <p>1. Start a game and walk the trainer within 55 pixels of any creature.<br>
+         2. Profile: <code>prox_font.render(label_str, True, WHITE)</code> fires at 60 FPS
+            for the full duration the player remains in proximity range.</p>
+    </div>
+    <div class="result-row">
+      <div class="result-box expected">
+        <div class="field-label">Expected</div>
+        The proximity label surface is re-rendered only when the closest creature object
+        changes identity, reusing the cached surface on all other frames.
+      </div>
+      <div class="result-box actual">
+        <div class="field-label">Actual</div>
+        <code>prox_font.render()</code> called unconditionally at 60 FPS whenever the player
+        is in proximity range, regardless of whether the creature or label text has changed.
+      </div>
+    </div>
+    <div class="field-block" style="margin-top:12px;">
+      <div class="field-label">Recommended Fix</div>
+      <p>Follow the same pattern used by score and timer pills:</p>
+      <pre>
+# Replace the unconditional render (line 1312) with:
+if (not hasattr(reset_game, '_prox_cache')
+        or reset_game._prox_cache[0] is not closest_c):
+    _lbl = (f"{closest_c['type']['name']}  --  "
+            f"{closest_c['type']['points']} pts  |  SPACE to catch")
+    reset_game._prox_cache = (closest_c, prox_font.render(_lbl, True, WHITE))
+label_text = reset_game._prox_cache[1]</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MED-02 ===== -->
+<div class="issue" id="med-02">
+  <div class="issue-header">
+    <span class="issue-id">MED-02</span>
+    <span class="badge badge-med">MED</span>
+    <span class="issue-title">[GameOver] score_big_font.render() fires at 60 FPS during the entire count-up animation</span>
+  </div>
+  <div class="issue-body">
+    <div class="field-block">
+      <div class="field-label">Description</div>
+      <p>
+        The animated score count-up correctly caches the <em>final</em> surface in
+        <code>_go_cache["_score_final"]</code> once animation completes. However, during the
+        count-up phase (up to 2 seconds), the else branch at line 1147 calls
+        <code>score_big_font.render()</code> unconditionally every frame:
+      </p>
+      <pre>
+# Lines 1142-1147
+if _go_anim_done and _go_cache and "_score_final" not in _go_cache:
+    _go_cache["_score_final"] = score_big_font.render(str(_go_anim_score), True, SCORE_GOLD)
+if _go_cache and "_score_final" in _go_cache:
+    _score_text = _go_cache["_score_final"]
+else:
+    _score_text = score_big_font.render(str(_go_anim_score), True, SCORE_GOLD)  # per-frame!</pre>
+      <p>
+        The count-up speed formula <code>max(200, score/2.0)</code> means the animated value
+        advances by 200-X points per second. For a score of 500, the displayed digit changes
+        roughly every 6 frames. Yet the 72pt <code>score_big_font</code> surface is
+        re-allocated on all 6 of those frames, not just the 1 frame where the value changes.
+        At 60 FPS over 2 seconds this is up to 120 unnecessary <code>render()</code> calls
+        for a large font surface.
+      </p>
+    </div>
+    <div class="result-row">
+      <div class="result-box expected">
+        <div class="field-label">Expected</div>
+        The score surface re-renders only when <code>_go_anim_score</code> changes value,
+        reusing the cached surface on all intermediate frames.
+      </div>
+      <div class="result-box actual">
+        <div class="field-label">Actual</div>
+        <code>score_big_font.render(str(_go_anim_score), True, SCORE_GOLD)</code> called at
+        60 FPS for up to 2 seconds during the count-up animation, regardless of whether
+        the displayed value has changed.
+      </div>
+    </div>
+    <div class="field-block" style="margin-top:12px;">
+      <div class="field-label">Recommended Fix</div>
+      <pre>
+# Replace the else branch with a value-keyed cache:
+if _go_cache and "_score_final" not in _go_cache:
+    _cached_val = _go_cache.get("_anim_val", -1)
+    if _go_anim_score != _cached_val:
+        _go_cache["_anim_surf"] = score_big_font.render(
+            str(_go_anim_score), True, SCORE_GOLD)
+        _go_cache["_anim_val"] = _go_anim_score
+    _score_text = _go_cache["_anim_surf"]
+    if _go_anim_done:
+        _go_cache["_score_final"] = _score_text   # freeze on completion
+else:
+    _score_text = _go_cache["_score_final"]</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MED-03 ===== -->
+<div class="issue" id="med-03">
+  <div class="issue-header">
+    <span class="issue-id">MED-03</span>
+    <span class="badge badge-med">MED</span>
+    <span class="issue-title">[GameOver] _go_bg_pulse_surf is filled twice per frame -- the first fill is a pure no-op</span>
+  </div>
+  <div class="issue-body">
+    <div class="field-block">
+      <div class="field-label">Description</div>
+      <p>Lines 1067-1068 fill the full-screen background pulse surface twice on every game-over frame:</p>
+      <pre>
+_go_bg_pulse_surf.fill((0, 0, 0, 0))                    # line 1067 -- full clear
+_go_bg_pulse_surf.fill((25, 30, 55, _pulse_alpha))       # line 1068 -- overwrites entire surface</pre>
+      <p>
+        The second <code>fill()</code> writes every pixel of the 1000x700 SRCALPHA surface
+        unconditionally, making the clear on line 1067 a pure no-op. For a 1000x700 pixel
+        surface this clears 700,000 pixels to transparent and then immediately overwrites them
+        all again. While performance impact at this resolution is minor, it is a redundant
+        operation that conflicts with the codebase's own policy of minimizing unnecessary
+        surface operations.
+      </p>
+    </div>
+    <div class="result-row">
+      <div class="result-box expected">
+        <div class="field-label">Expected</div>
+        A single <code>fill((25, 30, 55, _pulse_alpha))</code> call that directly sets the
+        desired state.
+      </div>
+      <div class="result-box actual">
+        <div class="field-label">Actual</div>
+        Two sequential full-surface fills execute every frame. The first clear is immediately
+        overwritten by the second fill.
+      </div>
+    </div>
+    <div class="field-block" style="margin-top:12px;">
+      <div class="field-label">Recommended Fix</div>
+      <pre>
+# Remove line 1067 entirely. Keep only:
+_go_bg_pulse_surf.fill((25, 30, 55, _pulse_alpha))</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MED-04 ===== -->
+<div class="area-label">Performance -- HUD / Playing Overlay</div>
+
+<div class="issue" id="med-04">
+  <div class="issue-header">
+    <span class="issue-id">MED-04</span>
+    <span class="badge badge-med">MED</span>
+    <span class="issue-title">[Playing] Streak multiplier pill re-renders font surface and re-creates Rect every frame while active</span>
+  </div>
+  <div class="issue-body">
+    <div class="field-block">
+      <div class="field-label">Description</div>
+      <p>
+        Lines 1362-1368 produce a new <code>small_font.render()</code> surface and a new
+        <code>pygame.Rect</code> every frame while <code>streak_multiplier &gt; 1.0</code>:
+      </p>
+      <pre>
+# Line 1362-1368
+if streak_multiplier > 1.0:
+    _streak_color = SCORE_GOLD if streak_multiplier >= 2.0 else ACCENT
+    _streak_text = small_font.render(f"x{streak_multiplier:.1f}", True, _streak_color)  # per-frame
+    _streak_pill = pygame.Rect(15, 60, _streak_text.get_width() + 20, 28)               # per-frame
+    ...</pre>
+      <p>
+        <code>streak_multiplier</code> only takes two non-default values: <code>1.5</code>
+        (after 3 consecutive catches) and <code>2.0</code> (after 6). The rendered text
+        and pill dimensions are therefore identical for all frames at a given tier. This is
+        inconsistent with the score and timer pills (lines 1357-1379) which are correctly
+        keyed caches that only re-render on value change.
+      </p>
+    </div>
+    <div class="result-row">
+      <div class="result-box expected">
+        <div class="field-label">Expected</div>
+        Streak pill surface and Rect cached per multiplier value, re-rendered only when
+        <code>streak_multiplier</code> changes, consistent with <code>reset_game._sc_cache</code>
+        and <code>reset_game._tm_cache</code> patterns.
+      </div>
+      <div class="result-box actual">
+        <div class="field-label">Actual</div>
+        <code>small_font.render()</code> and <code>pygame.Rect()</code> both called at 60 FPS
+        for the full duration of the streak (which can last the entire 60-second game).
+      </div>
+    </div>
+    <div class="field-block" style="margin-top:12px;">
+      <div class="field-label">Recommended Fix</div>
+      <pre>
+if streak_multiplier > 1.0:
+    _streak_color = SCORE_GOLD if streak_multiplier >= 2.0 else ACCENT
+    _sk_key = streak_multiplier
+    if (not hasattr(reset_game, '_streak_cache')
+            or reset_game._streak_cache[0] != _sk_key):
+        _st = small_font.render(f"x{streak_multiplier:.1f}", True, _streak_color)
+        reset_game._streak_cache = (
+            _sk_key, _st,
+            pygame.Rect(15, 60, _st.get_width() + 20, 28)
+        )
+    _, _streak_text, _streak_pill = reset_game._streak_cache
+    pygame.draw.rect(screen, PANEL_BG, _streak_pill, border_radius=14)
+    pygame.draw.rect(screen, _streak_color, _streak_pill, width=2, border_radius=14)
+    screen.blit(_streak_text, (_streak_pill.x + 10, _streak_pill.y + 2))</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LOW ISSUES ===== -->
+<div class="area-label">Low Severity</div>
+
+<div class="issue" id="low-01">
+  <div class="issue-header">
+    <span class="issue-id">LOW-01</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="issue-title">[CharacterSelect] K_1-K_4 handler uses int(event.unicode) with no ValueError guard</span>
+  </div>
+  <div class="issue-body">
+    <div class="field-block">
+      <div class="field-label">Description</div>
+      <p>
+        Lines 669-671 select a trainer by pressing 1-4 on the character-select screen.
+        The trainer index is derived from <code>event.unicode</code> using an unguarded
+        <code>int()</code> call:
+      </p>
+      <pre>
+if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4]:
+    selected_char = int(event.unicode) - 1   # line 670 -- no try/except</pre>
+      <p>
+        On standard Latin keyboard layouts this works correctly. However, on keyboards with
+        non-Latin number characters, numpad input on certain platforms, or OS-level input
+        method configurations, <code>event.unicode</code> for <code>K_1</code> may produce an
+        empty string or a non-ASCII character rather than <code>"1"</code>.
+        If <code>event.unicode</code> is empty or non-numeric, <code>int()</code> raises
+        <code>ValueError</code>, which is unhandled and terminates the game loop.
+      </p>
+    </div>
+    <div class="result-row">
+      <div class="result-box expected">
+        <div class="field-label">Expected</div>
+        Key code 1-4 maps deterministically to trainer index 0-3 regardless of keyboard locale
+        or input method configuration. Invalid unicode values handled gracefully with no crash.
+      </div>
+      <div class="result-box actual">
+        <div class="field-label">Actual</div>
+        <code>int(event.unicode)</code> raises <code>ValueError</code> if the unicode value
+        is empty or non-numeric, crashing the event loop with an unhandled exception.
+      </div>
+    </div>
+    <div class="field-block" style="margin-top:12px;">
+      <div class="field-label">Recommended Fix</div>
+      <pre>
+# Use key code directly instead of unicode string:
+_K_MAP = {pygame.K_1: 0, pygame.K_2: 1, pygame.K_3: 2, pygame.K_4: 3}
+if event.key in _K_MAP:
+    selected_char = _K_MAP[event.key]
+    game_state = "playing"
+    reset_game()</pre>
+    </div>
+  </div>
+</div>
+
+<div class="issue" id="low-02">
+  <div class="issue-header">
+    <span class="issue-id">LOW-02</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="issue-title">[CharacterSelect] _cs_popup state is never cleared on game exit -- popup reappears on return</span>
+  </div>
+  <div class="issue-body">
+    <div class="field-block">
+      <div class="field-label">Description</div>
+      <p>
+        The module-level variable <code>_cs_popup</code> controls which popup (if any) is
+        overlaid on the character-select screen. It is never reset by <code>reset_game()</code>.
+        If a player opens the "Best Scores" popup, then starts a game (via ENTER, START GAME
+        button, or trainer click), plays a full game, and presses R or Q from the game-over
+        screen back to character-select, <code>_cs_popup</code> retains its previous value.
+        On the next visit the popup re-opens automatically without user input.
+      </p>
+      <p>Reproduction sequence:</p>
+      <pre>
+1. Character-select screen: click [*] Best Scores
+   --> _cs_popup = "scores"
+2. Press ENTER to start a game
+   --> reset_game() called; _cs_popup NOT cleared
+3. Play game to completion
+4. Press R from game-over
+   --> game_state = "character_select"
+5. Best Scores popup is visible immediately without being requested</pre>
+    </div>
+    <div class="result-row">
+      <div class="result-box expected">
+        <div class="field-label">Expected</div>
+        On return to character-select, the screen shows only trainer cards with no popup visible.
+      </div>
+      <div class="result-box actual">
+        <div class="field-label">Actual</div>
+        If a popup was open when the player started the most recent game, it reappears
+        automatically on return to character-select.
+      </div>
+    </div>
+    <div class="field-block" style="margin-top:12px;">
+      <div class="field-label">Recommended Fix</div>
+      <pre>
+# Add to reset_game() global declarations and body:
+global _cs_popup
+_cs_popup = None</pre>
+    </div>
+  </div>
+</div>
+
+<div class="issue" id="low-03">
+  <div class="issue-header">
+    <span class="issue-id">LOW-03</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="issue-title">[Playing] Blinker (Water Sprite) teleport bypasses spawn_alpha -- creature pops to full visibility</span>
+  </div>
+  <div class="issue-body">
+    <div class="field-block">
+      <div class="field-label">Description</div>
+      <p>
+        The blinker behavior update (lines 824-834) sets the creature to a new position when
+        <code>blink_timer</code> expires, but does not reset <code>spawn_alpha</code>:
+      </p>
+      <pre>
+# Lines 832-834 -- successful teleport
+if not in_lake(_nx, _ny) and ...:
+    c["x"], c["y"] = _nx, _ny
+    break   # spawn_alpha is NOT reset here</pre>
+      <p>
+        Because <code>spawn_alpha</code> is already <code>1.0</code> (fully opaque) from the
+        initial fade-in, the creature appears at full opacity at the new location instantly,
+        producing a visible "pop" rather than a fade-in. This is inconsistent with the fade-in
+        system (#9) introduced for initial creature spawns. More importantly, a blinker can
+        teleport to a position within catch range of the player and be immediately catchable
+        with no approaching visual cue. This may be intentional game design, but it should be
+        documented explicitly if so -- as written there is no comment distinguishing intentional
+        teleport-pop from the general fade-in system.
+      </p>
+    </div>
+    <div class="result-row">
+      <div class="result-box expected">
+        <div class="field-label">Expected</div>
+        Blinker fades in at the new position after teleporting (spawn_alpha reset to 0.0),
+        consistent with the spawn fade-in design. Alternatively, if instant-pop is intentional,
+        a code comment documents this explicitly.
+      </div>
+      <div class="result-box actual">
+        <div class="field-label">Actual</div>
+        Water Sprite teleports and appears at full opacity instantly at the new location.
+        The spawn fade-in system is bypassed on every teleport event.
+      </div>
+    </div>
+    <div class="field-block" style="margin-top:12px;">
+      <div class="field-label">Recommended Fix</div>
+      <pre>
+# Option A -- fade in at new position (consistent with spawn behavior):
+c["x"], c["y"] = _nx, _ny
+c["spawn_alpha"] = 0.0    # trigger fade-in
+break
+
+# Option B -- document intentional pop (if by design):
+c["x"], c["y"] = _nx, _ny
+# spawn_alpha intentionally NOT reset; blinker "pops" to new location
+break</pre>
+    </div>
+  </div>
+</div>
+
+<div class="issue" id="low-04">
+  <div class="issue-header">
+    <span class="issue-id">LOW-04</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="issue-title">[GameOver] Tier message gap: unique_caught=0 and unique_caught=1 both display "NICE TRY!"</span>
+  </div>
+  <div class="issue-body">
+    <div class="field-block">
+      <div class="field-label">Description</div>
+      <p>The tier message branching (lines 906-913) has no distinct tier for <code>unique_caught == 1</code>:</p>
+      <pre>
+if   _unique_caught >= 5: _tier_msg = "LEGENDARY EXPLORER!"   # gold
+elif _unique_caught >= 4: _tier_msg = "AMAZING RUN!"          # cyan
+elif _unique_caught >= 2: _tier_msg = "GREAT JOB!"            # green
+else:                     _tier_msg = "NICE TRY!"             # grey  <-- covers 0 AND 1</pre>
+      <p>
+        A player who successfully catches creatures of one unique type (e.g., three Fire Drakes)
+        receives the same feedback as a player who scored zero and caught nothing. The tier system
+        is intended to reward exploration of creature variety, but the gap at <code>unique=1</code>
+        creates a dead zone where catching at least one type offers no additional recognition over
+        catching nothing.
+      </p>
+      <p>
+        Additionally, if a player finishes with <code>unique_caught == 0</code> but
+        <code>score &gt; 0</code> (edge case: score was modified by bugs or future mechanics),
+        the displayed message would still be "NICE TRY!" which is misleading against a non-zero score.
+        Current mechanics make <code>score &gt; 0, unique=0</code> impossible (every catch records
+        a unique type) but the tier boundary is still a UX gap.
+      </p>
+    </div>
+    <div class="result-row">
+      <div class="result-box expected">
+        <div class="field-label">Expected</div>
+        Distinct tier message for <code>unique_caught == 1</code> (e.g., "GOOD START!") to
+        acknowledge the player caught at least one creature type, with "NICE TRY!" reserved
+        for <code>unique_caught == 0</code> (no types caught at all).
+      </div>
+      <div class="result-box actual">
+        <div class="field-label">Actual</div>
+        <code>unique_caught == 0</code> and <code>unique_caught == 1</code> produce identical
+        "NICE TRY!" message in color <code>(200, 200, 210)</code>.
+      </div>
+    </div>
+    <div class="field-block" style="margin-top:12px;">
+      <div class="field-label">Recommended Fix</div>
+      <pre>
+if   _unique_caught >= 5: _tier_msg, _tier_color = "LEGENDARY EXPLORER!", (255, 215,   0)
+elif _unique_caught >= 4: _tier_msg, _tier_color = "AMAZING RUN!",        (100, 220, 255)
+elif _unique_caught >= 2: _tier_msg, _tier_color = "GREAT JOB!",          (120, 230, 120)
+elif _unique_caught == 1: _tier_msg, _tier_color = "GOOD START!",         (200, 160,  80)
+else:                     _tier_msg, _tier_color = "NICE TRY!",           (200, 200, 210)</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CONFIRMED PASSES ===== -->
+<h2 id="passes">Confirmed Passes</h2>
+
+<div class="pass-section">
+  <h3>End Screen -- Creature Showcase (all new design requirements)</h3>
   <ul>
-    <li><a href="#s1">1. Findings — High</a></li>
-    <li><a href="#s2">2. Findings — Medium</a></li>
-    <li><a href="#s3">3. Findings — Low</a></li>
-    <li><a href="#tc-state">TC-A: State Transitions</a></li>
-    <li><a href="#tc-play">TC-B: Playing State (Core Loop)</a></li>
-    <li><a href="#tc-streak">TC-C: Catch Streak Multiplier (#3)</a></li>
-    <li><a href="#tc-escalation">TC-D: Late-Game Escalation (#4)</a></li>
-    <li><a href="#tc-behavior">TC-E: Creature Behaviors (#5)</a></li>
-    <li><a href="#tc-fadein">TC-F: Spawn Fade-In (#9)</a></li>
-    <li><a href="#tc-pause">TC-G: Pause Menu (#10)</a></li>
-    <li><a href="#tc-stats">TC-H: Stats Persistence (#11 / #14)</a></li>
-    <li><a href="#tc-sound">TC-I: Sound FX (#1)</a></li>
-    <li><a href="#tc-newfeatures">TC-J: Remaining New Features (#2 #6 #7 #8 #12 #13 #15)</a></li>
-    <li><a href="#tc-edge">TC-K: Edge Cases &amp; Boundary Analysis</a></li>
-    <li><a href="#tc-perf">TC-L: Performance &amp; Surface Allocation</a></li>
-    <li><a href="#tc-interaction">TC-M: Feature Interaction Matrix</a></li>
-    <li><a href="#regression">Regression Status — Previously Fixed Issues</a></li>
+    <li>Tier messages: all four tiers render with correct text and color. Gold "LEGENDARY EXPLORER!" at unique=5, cyan "AMAZING RUN!" at unique=4, green "GREAT JOB!" at unique=2-3, grey "NICE TRY!" at unique=0-1. Tier surfaces pre-cached in _go_cache["tier"] and ["tier_shadow"].</li>
+    <li>Five-creature sticker row: caught stickers use _showcase_stickers (colored, pre-scaled 1.4x); uncaught stickers use _showcase_grey. Both sets pre-built at module level. Zero per-frame allocs for this row.</li>
+    <li>Bob animation on caught stickers: sin(_ticks * 2.5 + i * 1.2) applied correctly with per-creature phase offset. Checkmark position tracks bob offset. Uncaught stickers are static. Correct.</li>
+    <li>Green checkmark (pre-built _check_surf 20x20) rendered below each caught creature. Correct.</li>
+    <li>Creature name labels (_showcase_names_caught, _showcase_names_grey): pre-rendered per creature type. Correct.</li>
+    <li>Trainer sprite displayed left of score card. Fallback circle+letter rendered when trainer image is None. Correct.</li>
+    <li>Score card (240px wide, 92px tall, rounded corners) renders with animated count-up score. Card background and border correctly drawn. Correct.</li>
+    <li>Count-up animation: speed = max(200, score/2.0); caps at ~2 seconds for any score. Final value cached in _go_cache["_score_final"] after animation completes. Correct.</li>
+    <li>Caught count line ("Caught N creature(s) (M/5 types)") pre-cached in _go_cache["count"]. Correct pluralization (creature vs creatures). Correct.</li>
+    <li>Two-column bottom section: leaderboard left (x = cx - gap/2 - col_w), name entry right (x = cx + gap/2). Column width 240px, height 170px, rounded panels. Correct layout.</li>
+    <li>Always-visible [R] Play Again and [Q] Menu at HEIGHT-28: both pre-cached in _go_cache["nav_r"/"nav_q"]. No score_saved guard. Always displayed. Correct.</li>
+    <li>Firework particles: 30 particles spawned when is_new_high_score is True. Gravity (+30 * dt/s), random initial velocities, lifetime 1.5-3.0s. Per-frame position and lifetime update. Particle list filtered when life &lt;= 0. Correct.</li>
+    <li>"NEW HIGH SCORE!" banner: hs_indicator_font pre-rendered in two variants (gold + dark glow). Pulse animation via sin(_ticks * 4). Renders only when is_new_high_score is True. Correct.</li>
+    <li>Orange flash: _go_flash_surf pre-allocated (no per-frame alloc). Alpha fades from 80 to 0 over 0.5s using _go_flash_timer. Correct.</li>
+    <li>Personal best and all-time catch stats pre-cached in _go_cache["pb"] and ["at"]. Rendered at _stats_y. Correct.</li>
   </ul>
 </div>
 
-<!-- ═══════════════════════════ HIGH FINDINGS ═══════════════════════════ -->
-<h2 id="s1">Findings — High Priority</h2>
-
-<div class="finding high">
-  <div class="finding-header">
-    <span class="badge b-high">HIGH</span>
-    <span class="finding-id">HIGH-01</span>
-    <span class="finding-title">Streak multiplier applied BEFORE increment — first catch at streak=3 does NOT trigger 1.5x</span>
-  </div>
-  <p><strong>Component:</strong> Catch handler, lines 637–646</p>
-  <p><strong>Description:</strong> The streak multiplier is read and applied to the score <em>before</em> <code>catch_streak</code> is incremented. The upgrade thresholds (<code>&gt;=3</code>, <code>&gt;=6</code>) are then evaluated on the post-increment value and update <code>streak_multiplier</code> — but too late to affect the catch that just triggered the threshold. The player's 3rd catch scores at 1.0x; only the 4th catch scores at 1.5x. The player's 6th catch scores at 1.5x; only the 7th catch scores at 2.0x. The spec says 1.5x activates <em>at</em> 3 catches, implying the third catch should benefit.</p>
-  <p><strong>Reproduction:</strong> 1. Start game. 2. Catch 3 creatures without hitting a bomb. 3. Observe float text on the 3rd catch — it still shows the 1x value. 4. Float text on the 4th catch shows 1.5x.</p>
-  <pre>
-# Line 637-646 (current — BUG)
-base_pts = caught["points"]
-pts = int(base_pts * streak_multiplier)  # multiplier OLD value used
-score += pts
-inventory.append(caught["name"])
-catch_streak += 1                        # increment AFTER scoring
-if catch_streak >= 6:
-    streak_multiplier = 2.0
-elif catch_streak >= 3:
-    streak_multiplier = 1.5              # updated too late
-
-# Recommended fix: increment streak, update multiplier FIRST, then score
-catch_streak += 1
-if catch_streak >= 6:
-    streak_multiplier = 2.0
-elif catch_streak >= 3:
-    streak_multiplier = 1.5
-pts = int(base_pts * streak_multiplier)
-score += pts</pre>
-  <p><strong>Impact:</strong> Player is systematically under-rewarded at every threshold boundary. Over a full game this can suppress scores by 50–100 points, affecting leaderboard placement. Also undermines the designed progression feel.</p>
+<div class="pass-section">
+  <h3>Score Saving and Leaderboard</h3>
+  <ul>
+    <li>R key: works unconditionally from game_over state (line 754 -- no score_saved guard). Previously blocking HIGH-02 from pass 4 confirmed resolved.</li>
+    <li>Q key: works unconditionally from game_over state (line 757 -- no score_saved guard). Correct.</li>
+    <li>Name entry: accepts alphanumeric only (event.unicode.isalnum()); max 5 characters; BACKSPACE removes last character. All three guards present and correct.</li>
+    <li>ENTER submits: score &gt; 0 AND len(name_input) &gt; 0 AND not score_saved -- all three guards verified on line 762. Correct.</li>
+    <li>save_high_score() updates high_scores list, sorts descending, truncates to 5, writes highscores.txt, and calls _build_scores_popup(). All steps confirmed (lines 167-178).</li>
+    <li>Leaderboard cache (_go_cache["lb_lines"]) rebuilt immediately after save (lines 767-771). Live leaderboard reflects the new entry on the same screen without requiring a restart.</li>
+    <li>score=0 edge case: name-entry block and ENTER handler both gate on score &gt; 0 (lines 758, 762). Right column correctly shows "No score" / "Press R to try again". Correct.</li>
+    <li>is_new_high_score at line 885: evaluates to False when score == 0 (guarded by score &gt; 0). No fireworks, no banner, no flash for zero-score game over. Correct.</li>
+    <li>Empty leaderboard: _go_cache["lb_lines"] is empty list; draw block at line 1172 falls through to "No scores yet!" path. Correct.</li>
+    <li>Personal best stored BEFORE _go_cache construction (lines 889-892 before line 930), so the cached "pb" surface reflects the current game. Correct ordering confirmed.</li>
+    <li>All-time catches (_stats["total_catches"]) updated per creature on catch (line 729). _save_stats() called at game-over transition (line 892) and on Q-quit from pause (line 749). Correct.</li>
+    <li>Highscores parser (lines 138-151): rsplit(maxsplit=1) handles names with spaces. ValueError and OSError caught; fallback to empty list. Correct.</li>
+  </ul>
 </div>
 
-<div class="finding high">
-  <div class="finding-header">
-    <span class="badge b-high">HIGH-02</span>
-    <span class="finding-id">HIGH-02</span>
-    <span class="finding-title">Game-over name-entry inaccessible when score=0 — player stuck with no escape</span>
-  </div>
-  <p><strong>Component:</strong> Game-over event handler, line 787; game-over input handler, lines 672–681</p>
-  <p><strong>Description:</strong> When the game ends with score=0, <code>is_new_high_score</code> is forced to <code>False</code> (line 787: <code>score &gt; 0 and ...</code>). However, the name-entry UI and submit logic (<code>score_saved</code> path) are still rendered because they are gated on <code>score_saved</code>, not <code>is_new_high_score</code>. The player sees the name-entry pill and can type a name, but pressing ENTER has no effect because the save branch silently calls <code>save_high_score("NAME", 0)</code> — which IS reachable — then sets <code>score_saved = True</code>. This means a score of 0 can pollute the high-score file. Separately, the only way to leave the game-over screen is pressing R <em>after</em> <code>score_saved</code> is True. If the player presses R without saving first (skipping name entry), there is no handler for that — pressing R when <code>score_saved=False</code> does nothing, and there is no ESC/Q handler in game_over state. The player must enter a name and submit before they can leave.</p>
-  <p><strong>Reproduction:</strong> 1. Start game. 2. Immediately walk into all bombs until time expires with 0 score (or just wait 60s). 3. On game-over screen press R — nothing happens. 4. No instruction is shown to tell the player how to proceed without entering a name.</p>
-  <pre>
-# Line 787
-is_new_high_score = score > 0 and (...)   # 0-score game: False
-
-# Lines 672–673 — R key only works AFTER score_saved
-if event.key == pygame.K_r and score_saved:
-    game_state = "character_select"
-
-# No handler for: R when score_saved=False, ESC, Q in game_over state
-# Also: save_high_score(name, 0) is never blocked — 0 scores enter leaderboard</pre>
-  <p><strong>Recommended fix:</strong> (a) Allow R key to return to menu even when <code>score_saved</code> is False (skip name entry for zero or low scores if desired). (b) Add an ESC or Q handler in <code>game_over</code> state. (c) Guard <code>save_high_score</code> so scores of 0 are not written. (d) Display a "Press R to skip / Return to Menu" hint unconditionally.</p>
-  <p><strong>Impact:</strong> High — a player who finishes with 0 points is trapped on the game-over screen until they submit a name, with no visible instruction explaining this.</p>
+<div class="pass-section">
+  <h3>Navigation</h3>
+  <ul>
+    <li>R from game_over: sets game_state = "character_select" (line 755). Does NOT call reset_game() directly; reset_game() is invoked when the player starts a new game from character-select. Correct state separation.</li>
+    <li>Q from game_over: sets game_state = "character_select" (line 757). Correct.</li>
+    <li>Q from paused: _total_paused_ms updated before transition (line 748); _save_stats() called (line 749); game_state = "character_select" (line 750). Correct. Note: reset_game() not called from pause-quit -- acceptable since player goes to character-select where reset_game() fires on new game start.</li>
+    <li>Full state machine: character_select -&gt; playing -&gt; paused -&gt; playing (ESC resume); paused -&gt; character_select (Q); playing -&gt; game_over (timer expires); game_over -&gt; character_select (R or Q). All transitions verified.</li>
+    <li>Mouse click on trainer card sets selected_char correctly (lines 692-695). Click on START GAME button starts game (line 684-686). Correct.</li>
+  </ul>
 </div>
 
-<!-- ═══════════════════════════ MED FINDINGS ═══════════════════════════ -->
-<h2 id="s2">Findings — Medium Priority</h2>
-
-<div class="finding med">
-  <div class="finding-header">
-    <span class="badge b-med">MED</span>
-    <span class="finding-id">MED-01</span>
-    <span class="finding-title">Proximity label and catch pop animation positions not offset by screen shake</span>
-  </div>
-  <p><strong>Component:</strong> Draw loop, lines 1118–1133, 1101–1109</p>
-  <p><strong>Description:</strong> During screen shake all world elements (rocks, bombs, creatures, trainer) are correctly offset by <code>(_shake_ox, _shake_oy)</code>. However, the proximity label pill is drawn using the unshaken creature world coordinates (<code>c["x"]</code>, <code>c["y"]</code>) as anchor, with no <code>_shake_ox / _shake_oy</code> added. This causes the label to appear misaligned from its creature during the 6-frame shake window. The catch pop animations at lines 1108–1109 <em>do</em> apply shake offsets — but the proximity label does not.</p>
-  <pre>
-# Line 1123 — shake offset MISSING on lbl_x anchor
-lbl_x = int(closest_c["x"]) - lw // 2 - pad_x   # should be int(closest_c["x"]) + _shake_ox - ...
-lbl_y = max(4, int(closest_c["y"]) + closest_c.get("_bob", 0) - 50 - lh - pad_y * 2)
-#                                                   ^^ _shake_oy missing too</pre>
-  <p><strong>Impact:</strong> Visual inconsistency — label detaches from creature for ~6 frames on each bomb hit. Minor but noticeable. Also confirms the HUD pills (score, timer, streak) are correctly unshaken since they use fixed pixel coords.</p>
+<div class="pass-section">
+  <h3>Creature Behaviors</h3>
+  <ul>
+    <li>Pacer (Fire Drake): orbit angle += orbit_speed * dt each frame. Position = orbit_center + (cos/sin of angle) * orbit_r. Smooth circular orbit. Correct.</li>
+    <li>Blinker (Water Sprite): blink_timer -= dt; on expiry up to 5 position attempts excluding lake and rock zones. Falls back to current position on all-fail (safe). Timer reset to random 2-4s. Correct.</li>
+    <li>Drifter (Electric Spark): velocity-based movement; x and y axes bounce independently off map bounds, lake, and rocks. No stuck-in-corner scenario. Correct.</li>
+    <li>Fader (Shadow Phantom): alpha = max(50, 255 - (dist-100)*2.05). Player must be within ~143px for alpha to reach catchable threshold (128). Catch-eligibility check at line 713 uses the same formula. Consistent.</li>
+    <li>Static (Forest Guardian): no movement logic; bob and fade-in only. Correct.</li>
+    <li>Spawn fade-in: spawn_alpha initialized to 0.0; incremented by dt/0.4 per frame (~0.4s to fully opaque). Catch blocked at spawn_alpha &lt; ~0.5 (line 713). Correct.</li>
+    <li>Zone-based weighting: Water Sprite 3x near ponds, Forest Guardian 3x near trees, Shadow Phantom 3x in school zone. Applied via random.choices with weights. Correct.</li>
+  </ul>
 </div>
 
-<div class="finding med">
-  <div class="finding-header">
-    <span class="badge b-med">MED</span>
-    <span class="finding-id">MED-02</span>
-    <span class="finding-title">Best Scores popup allocates a new SRCALPHA Surface every frame it is visible</span>
-  </div>
-  <p><strong>Component:</strong> Character select draw block, lines 923–937</p>
-  <p><strong>Description:</strong> The "How to Play" popup is correctly pre-rendered at startup into <code>_cs_popup_how</code>. The "Best Scores" popup, however, allocates a fresh <code>pygame.Surface((_CS_POPUP_W, _CS_POPUP_H), pygame.SRCALPHA)</code> every draw frame, fills it, draws border and text, then blits to screen. At 60 FPS this is 60 surface allocations per second while the popup is open, producing GC pressure. This was flagged in the QA Pass 3 notes as MED-03 and remains unresolved.</p>
-  <pre>
-# Line 924 — executes every draw frame while _cs_popup == "scores"
-_sp = pygame.Surface((_CS_POPUP_W, _CS_POPUP_H), pygame.SRCALPHA)   # NEW alloc
-_sp.fill((26, 26, 46, 240))
-pygame.draw.rect(_sp, ...)
-# ... blit all score rows ...</pre>
-  <p><strong>Recommended fix:</strong> Pre-render into a module-level <code>_cs_popup_scores</code> surface; rebuild it only when <code>high_scores</code> changes (on save). Follow the same pattern as <code>_cs_popup_how</code>.</p>
-  <p><strong>Impact:</strong> Performance regression; observable on lower-end hardware or after the popup has been open for many seconds. Also inconsistent with the established caching pattern.</p>
+<div class="pass-section">
+  <h3>Bomb System</h3>
+  <ul>
+    <li>Collision: 40px radius; gated by bomb_cooldown &lt;= 0. Cooldown set to 1.5s after hit. Prevents multi-hit per encounter. Correct.</li>
+    <li>Penalty: score = max(0, score - 100). Cannot go below 0. Correct.</li>
+    <li>Flash: _bomb_flash_surf pre-allocated (no per-frame alloc); bomb_flash_frames decremented each draw frame. Correct.</li>
+    <li>Streak reset: catch_streak = 0 and streak_multiplier = 1.0 both set atomically on bomb hit (lines 801-802). Correct.</li>
+    <li>Screen shake: 6 frames at magnitude 8, decremented per frame. Applied to world, rocks, bombs, creatures, trainer, HUD elements. Correct.</li>
+    <li>New bomb spawned at valid random position (lake-excluded, rock-excluded, player-distant). Fallback paths for exhausted attempts present. Correct.</li>
+    <li>Late-game escalation: extra bomb appended, _bob_speed raised to 3.5 when time_left &lt; 15. _escalation_triggered guard prevents double-trigger. Correct.</li>
+  </ul>
 </div>
 
-<div class="finding med">
-  <div class="finding-header">
-    <span class="badge b-med">MED</span>
-    <span class="finding-id">MED-03</span>
-    <span class="finding-title">Score and Timer HUD pills call font.render() every frame — two per-frame allocations</span>
-  </div>
-  <p><strong>Component:</strong> Playing draw loop, lines 1165, 1183</p>
-  <p><strong>Description:</strong> <code>font.render(f"Score: {score}", ...)</code> and <code>font.render(f"Time: {time_left}s", ...)</code> are called on every draw frame. While the score changes only on catches/bomb-hits and time_left changes at most once per second, these calls happen 60 times per second unconditionally. Each call allocates a new pygame Surface. The streak text at line 1170 has the same issue: <code>small_font.render(...)</code> per frame. Compare against <code>_go_cache</code> which correctly pre-renders on game-over.</p>
-  <pre>
-# Line 1165 — every draw frame
-screen.blit(font.render(f"Score: {score}", True, SCORE_GOLD), ...)
-
-# Line 1183 — every draw frame
-screen.blit(font.render(f"Time: {time_left}s", True, ...), ...)</pre>
-  <p><strong>Recommended fix:</strong> Cache the last rendered score and time_left surfaces; re-render only when the values change. Pattern: <code>if score != _cached_score: _score_surf = font.render(...); _cached_score = score</code>.</p>
-  <p><strong>Impact:</strong> 2–3 extra allocations per frame during gameplay. At 60 FPS: ~180 allocations/sec. Contributes to garbage collection pauses on low-end hardware.</p>
+<div class="pass-section">
+  <h3>Pause System</h3>
+  <ul>
+    <li>ESC while playing: _pause_start_ms = get_ticks(); screenshot captured to _pause_screenshot; game_state = "paused". Correct.</li>
+    <li>ESC while paused: _total_paused_ms += elapsed since _pause_start_ms; game_state = "playing". Timer accumulation correct; multiple pause/resume cycles handled correctly.</li>
+    <li>Elapsed time formula: (get_ticks() - start_ticks - _total_paused_ms) / 1000. Used consistently in update loop (line 870) and draw HUD (line 1371). Correct exclusion of all paused intervals.</li>
+    <li>Pause screen: _pause_overlay, _pause_title, _pause_hint_esc, _pause_hint_q all pre-allocated. Zero per-frame allocations in paused draw block. Correct.</li>
+  </ul>
 </div>
 
-<div class="finding med">
-  <div class="finding-header">
-    <span class="badge b-med">MED</span>
-    <span class="finding-id">MED-04</span>
-    <span class="finding-title">Bubble surfaces allocated per-frame on game-over screen — 14 × 60 = 840 allocs/sec</span>
-  </div>
-  <p><strong>Component:</strong> Game-over draw loop, lines 948–954</p>
-  <p><strong>Description:</strong> For each of the 14 bubbles, a 50×50 SRCALPHA surface is created, filled, and drawn every frame. This is the most expensive per-frame allocation in the codebase. The bubble position changes each frame (y moves up) but the surface size and color are fixed per bubble lifecycle.</p>
-  <pre>
-# Line 950 — runs 14 times per frame, 60 frames/sec = 840 new Surfaces/sec
-_bs = pygame.Surface((_bubble_surf_size, _bubble_surf_size), pygame.SRCALPHA)
-pygame.draw.ellipse(_bs, (*b["color"], 90), ...)</pre>
-  <p><strong>Recommended fix:</strong> Pre-render one surface per bubble color/size combination on game-over entry (when <code>_go_bubbles</code> is built), store as <code>b["surf"]</code>, and blit with position-only updates each frame. The pre-rendered <code>_go_flash_surf</code> at line 271 demonstrates the intended pattern.</p>
-  <p><strong>Impact:</strong> Highest allocation rate in the file. Likely to cause frame drops on integrated graphics during the game-over celebration, precisely when visual fidelity matters most.</p>
+<div class="pass-section">
+  <h3>Catch Mechanics</h3>
+  <ul>
+    <li>Streak increment order (PREVIOUSLY HIGH-01 pass 4): catch_streak incremented FIRST (line 718), THEN multiplier tier evaluated (lines 719-722), THEN score computed (line 724). The Nth catch that trips a new tier correctly scores at the new tier. Confirmed resolved.</li>
+    <li>Multiplier tiers: streak &gt;= 3 = 1.5x; streak &gt;= 6 = 2.0x. Correct thresholds.</li>
+    <li>score += int(base_pts * streak_multiplier). Integer truncation is consistent and deterministic.</li>
+    <li>SPACE catch: iterates in reverse (del creatures[i] safe), breaks after one catch per keypress. Correct.</li>
+    <li>Catch pop animation: 0.15s scale-down using timer/0.15 as scale factor. smoothscale called each animation frame (intentionally dynamic). Correct.</li>
+    <li>Fader catchability threshold: _eff_alpha &lt; 128 guard checked before distance check, consistent with draw-side fader_alpha. Correct.</li>
+  </ul>
 </div>
 
-<div class="finding med">
-  <div class="finding-header">
-    <span class="badge b-med">MED</span>
-    <span class="finding-id">MED-05</span>
-    <span class="finding-title">Pause state: Q quits without resetting game state — resuming later shows stale data</span>
-  </div>
-  <p><strong>Component:</strong> Pause event handler, line 667–668</p>
-  <p><strong>Description:</strong> When the player presses Q in the pause menu, <code>game_state = "character_select"</code> is set directly without calling <code>reset_game()</code>. The globals <code>score</code>, <code>catch_streak</code>, <code>streak_multiplier</code>, <code>_escalation_triggered</code>, <code>creatures</code>, <code>bombs</code>, <code>_total_paused_ms</code>, and <code>_pause_start_ms</code> all retain their in-game values. If the player returns to the main menu, sees the select screen, and immediately starts again (pressing ENTER or 1-4), <code>reset_game()</code> IS called from the character-select event handler, so the next game is clean. However, if any code path re-enters "playing" without going through character-select (currently not possible, but relevant for future additions), stale state would leak. More concretely: <code>_pause_start_ms</code> is NOT added to <code>_total_paused_ms</code> before quitting. If telemetry or stats were ever read at this point, the timing would be wrong. Additionally, the per-trainer best score is NOT saved on Q-quit (only saved when <code>time_left &lt;= 0</code>), so an in-progress personal best is discarded silently.</p>
-  <pre>
-# Lines 667-668
-elif event.key == pygame.K_q:
-    game_state = "character_select"   # no reset_game(), no stats save</pre>
-  <p><strong>Impact:</strong> Stats not saved on Q-quit; in-progress personal best lost. Low corruption risk currently, moderate risk as a future regression vector.</p>
+<div class="pass-section">
+  <h3>Performance -- Pre-Cached Surfaces (all verified correct)</h3>
+  <ul>
+    <li>_world_surf: full neighbourhood world pre-rendered once at module level. Blitted by reference every frame. Correct.</li>
+    <li>All shadow ellipses (_shad_tree, _shad_rock, _shad_bomb, _shad_creature, _shad_trainer): pre-allocated SRCALPHA surfaces. Correct.</li>
+    <li>Type circle surfaces (_type_circles): one pre-allocated surface per creature type. Correct.</li>
+    <li>Sticker surfaces (_sticker_surfs, _grey_sticker_surfs, _showcase_stickers, _showcase_grey): all pre-rendered at module level with smoothscale. Correct.</li>
+    <li>Showcase name labels (_showcase_names_caught, _showcase_names_grey): pre-rendered per creature type at module level. Correct.</li>
+    <li>Checkmark surface (_check_surf): pre-allocated once at module level. Correct.</li>
+    <li>Pause overlay and static text: _pause_overlay, _pause_title, _pause_hint_esc, _pause_hint_q -- all pre-allocated. Correct.</li>
+    <li>Score pill and timer pill: keyed cache via function attribute (reset_game._sc_cache, reset_game._tm_cache). Re-renders only on value change. Correct.</li>
+    <li>Character-select surfaces: _cs_overlay, _cs_card_normal, _cs_card_sel_big, _cs_card_glow_big, _cs_trainer_big, title/subtitle/labels, button surface, arrow hint, popup_how, _cs_popup_scores -- all pre-rendered. Correct.</li>
+    <li>_build_scores_popup() called at startup and after save_high_score(). Invalidation logic (_cs_popup_scores_ver tracking len(high_scores)) present. Correct.</li>
+    <li>Float text surfaces: allocated once per float event in _make_float_text(); alpha adjusted via set_alpha() each frame (no re-render). Correct.</li>
+    <li>_go_bg_pulse_surf, _go_flash_surf, _bomb_flash_surf: all pre-allocated SRCALPHA surfaces. Correct (see MED-03 for the redundant double-fill on _go_bg_pulse_surf).</li>
+    <li>Game-over static labels (tier, count, nav_r, nav_q, pb, at, lb_title, lb_lines, hs, hs_glow): all pre-rendered in _go_cache on game-over entry. Correct. (See HIGH-01 for the 8 remaining labels not yet moved to cache.)</li>
+  </ul>
 </div>
 
-<!-- ═══════════════════════════ LOW FINDINGS ═══════════════════════════ -->
-<h2 id="s3">Findings — Low Priority</h2>
-
-<div class="finding low">
-  <div class="finding-header">
-    <span class="badge b-low">LOW</span>
-    <span class="finding-id">LOW-01</span>
-    <span class="finding-title">Arrow-hint text rendered per frame on character-select screen</span>
-  </div>
-  <p><strong>Component:</strong> Character-select draw loop, line 912</p>
-  <p><strong>Description:</strong> <code>tiny_font.render("&lt; A/D or Arrow Keys to browse &gt;", True, (120, 120, 120))</code> is called every draw frame. The string is static and never changes. This is a single allocation per frame (minor) but violates the established pre-render pattern used for all other static text in the file.</p>
-  <pre>
-# Line 912 — every frame on character_select
-_arrow_hint = tiny_font.render("< A/D or Arrow Keys to browse >", True, (120, 120, 120))</pre>
-  <p><strong>Fix:</strong> Move to module level alongside other pre-rendered label surfaces.</p>
+<div class="pass-section">
+  <h3>Persistence -- highscores.txt and stats.json</h3>
+  <ul>
+    <li>highscores.txt: rsplit(maxsplit=1) parser correctly handles multi-word names. Sorted descending, truncated to top 5. ValueError and OSError caught at parse time. Correct.</li>
+    <li>File write: one "name score" entry per line. Format consistent with parser. Correct.</li>
+    <li>stats.json: loaded with JSONDecodeError guard; both required keys ("total_catches", "trainer_bests") verified and defaulted if missing. Correct.</li>
+    <li>_save_stats() called at game-over (line 892) and Q-quit from pause (line 749). In-progress stats written to disk on all normal exit paths. Correct.</li>
+    <li>Personal best comparison uses strict greater-than (line 890: score > current best), preventing spurious writes on tied scores. Correct.</li>
+  </ul>
 </div>
 
-<div class="finding low">
-  <div class="finding-header">
-    <span class="badge b-low">LOW</span>
-    <span class="finding-id">LOW-02</span>
-    <span class="finding-title">prox_font.render() called per frame when a creature is in catch range</span>
-  </div>
-  <p><strong>Component:</strong> Playing draw loop, line 1120</p>
-  <p><strong>Description:</strong> <code>prox_font.render(label_str, True, WHITE)</code> is called every frame when the player is within 55px of a creature. The label text only changes when the closest creature changes (type or distance threshold). A cache keyed on the closest creature's type name would eliminate the redundant renders.</p>
-  <pre>
-# Line 1120 — every frame when nearest creature &lt; 55px
-label_text = prox_font.render(label_str, True, WHITE)</pre>
+<div class="pass-section">
+  <h3>Previously Reported Issues -- Confirmed Resolved</h3>
+  <ul>
+    <li><strong>Pass-4 HIGH-01 (streak multiplier off-by-one):</strong> RESOLVED. Catch_streak incremented before score computation confirmed at line 718.</li>
+    <li><strong>Pass-4 HIGH-02 (score=0 game-over trap -- R key blocked by score_saved):</strong> RESOLVED. R and Q keys have no score_saved guard (lines 755, 757). Both work unconditionally.</li>
+    <li><strong>Pass-4 MED-01 (proximity label shake offset):</strong> RESOLVED. lbl_x (line 1315) and lbl_y (line 1317) both incorporate _shake_ox/_shake_oy. Label tracks correctly during screen shake.</li>
+    <li><strong>Pass-4 MED-04 (game-over bubble per-frame SRCALPHA alloc):</strong> RESOLVED. Old bubble system replaced entirely; background pulse uses pre-allocated _go_bg_pulse_surf with set_alpha-equivalent pattern.</li>
+    <li><strong>Pass-4 MED-05 (Q-quit from pause discards in-progress stats):</strong> RESOLVED. _save_stats() called at line 749 before state transition on Q-from-pause.</li>
+  </ul>
 </div>
 
-<div class="finding low">
-  <div class="finding-header">
-    <span class="badge b-low">LOW</span>
-    <span class="finding-id">LOW-03</span>
-    <span class="finding-title">1-4 number keys on character-select immediately start the game, not just select</span>
-  </div>
-  <p><strong>Component:</strong> Character-select event handler, lines 594–597</p>
-  <p><strong>Description:</strong> Pressing 1, 2, 3, or 4 on the character-select screen simultaneously sets the selected trainer AND transitions to "playing" state. Arrow/A/D keys only navigate, requiring a separate ENTER or click to start. This was flagged as MED-01 in pass 3. It remains unaddressed. The inconsistency means power-users who memorise "press 1 to start fast" get instant-start, while new users navigating with arrows face an extra confirm step.</p>
-  <pre>
-# Lines 594-597
-if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4]:
-    selected_char = int(event.unicode) - 1
-    game_state = "playing"     # immediate start — no confirm
-    reset_game()</pre>
+</div><!-- /main content -->
+</div><!-- /layout -->
+
+<div style="margin-top:40px; padding-top:16px; border-top:1px solid #2a2e52; color:#4a5070; font-size:12px;">
+  GeoCatch Pygame -- QA Regression Report Pass 5 &nbsp;|&nbsp; QALeadMaster &nbsp;|&nbsp; 2026-03-08 &nbsp;|&nbsp;
+  0 CRIT / 2 HIGH / 4 MED / 4 LOW &nbsp;|&nbsp; Verdict: CONDITIONAL PASS
 </div>
-
-<div class="finding low">
-  <div class="finding-header">
-    <span class="badge b-low">LOW</span>
-    <span class="finding-id">LOW-04</span>
-    <span class="finding-title">Escalation adds 5th bomb immediately on trigger frame — mid-wave bomb appears without any warning</span>
-  </div>
-  <p><strong>Component:</strong> Late-game escalation, lines 776–779</p>
-  <p><strong>Description:</strong> When <code>time_left</code> first drops below 15, the 5th bomb is appended via <code>bombs.append(_spawn_bomb_random())</code> with no visual fanfare, audio cue beyond the existing tick sound, or brief placement delay. The bomb materialises at a random position that could be on top of the player (the 80px minimum distance is from the player position at spawn time, but the player could have moved into that zone by the next frame). No cooldown is set at escalation time, so the player can be hit on the very first frame the bomb exists if they were unlucky about position.</p>
-  <p><strong>Recommended fix:</strong> Either play a distinct escalation sound, show a brief "DANGER ZONE!" flash text, or impose a short 30-frame cooldown on the new bomb at spawn. Also add the new bomb to the existing cooldown window so it inherits safety time.</p>
-</div>
-
-<!-- ═══════════════════════════ TEST CASE TABLES ═══════════════════════════ -->
-<hr>
-<h2 id="tc-state">TC-A: State Transitions</h2>
-<div class="test-table-wrap"><table>
-<thead><tr><th>ID</th><th>Title</th><th>Preconditions</th><th>Steps</th><th>Expected Result</th><th>Status</th><th>Notes</th></tr></thead>
-<tbody>
-<tr>
-  <td class="td-id">A-01</td>
-  <td>character_select → playing via ENTER</td>
-  <td>Game just launched</td>
-  <td>Press ENTER on character select</td>
-  <td>State = "playing"; reset_game() called; timer starts</td>
-  <td><span class="badge b-pass">PASS</span></td>
-  <td>Lines 598–600 confirmed</td>
-</tr>
-<tr>
-  <td class="td-id">A-02</td>
-  <td>character_select → playing via mouse click on START</td>
-  <td>Game just launched</td>
-  <td>Click "START GAME" button</td>
-  <td>State = "playing"; reset_game() called</td>
-  <td><span class="badge b-pass">PASS</span></td>
-  <td>Lines 609–611 confirmed</td>
-</tr>
-<tr>
-  <td class="td-id">A-03</td>
-  <td>playing → paused via ESC</td>
-  <td>In playing state</td>
-  <td>Press ESC</td>
-  <td>State = "paused"; _pause_start_ms set; screenshot captured</td>
-  <td><span class="badge b-pass">PASS</span></td>
-  <td>Lines 625–628</td>
-</tr>
-<tr>
-  <td class="td-id">A-04</td>
-  <td>paused → playing via ESC</td>
-  <td>In paused state</td>
-  <td>Press ESC</td>
-  <td>State = "playing"; paused duration added to _total_paused_ms</td>
-  <td><span class="badge b-pass">PASS</span></td>
-  <td>Lines 664–666</td>
-</tr>
-<tr>
-  <td class="td-id">A-05</td>
-  <td>paused → character_select via Q</td>
-  <td>In paused state</td>
-  <td>Press Q</td>
-  <td>State = "character_select"; game state visually resets</td>
-  <td><span class="badge b-partial">PARTIAL</span></td>
-  <td>Transition works; reset_game() not called; stats not saved. See MED-05</td>
-</tr>
-<tr>
-  <td class="td-id">A-06</td>
-  <td>playing → game_over on timer expiry</td>
-  <td>Playing; time_left reaches 0</td>
-  <td>Wait for timer to expire</td>
-  <td>State = "game_over"; _go_cache populated; gameover sound plays</td>
-  <td><span class="badge b-pass">PASS</span></td>
-  <td>Lines 786–820</td>
-</tr>
-<tr>
-  <td class="td-id">A-07</td>
-  <td>game_over → character_select via R (after saving name)</td>
-  <td>game_over; score_saved=True</td>
-  <td>Press R</td>
-  <td>State = "character_select"</td>
-  <td><span class="badge b-pass">PASS</span></td>
-  <td>Line 673</td>
-</tr>
-<tr>
-  <td class="td-id">A-08</td>
-  <td>game_over → character_select via R before saving (score=0)</td>
-  <td>game_over; score=0; score_saved=False</td>
-  <td>Press R</td>
-  <td>Should return to menu</td>
-  <td><span class="badge b-fail">FAIL</span></td>
-  <td>R key handler gated on score_saved=True. Player is stuck. See HIGH-02</td>
-</tr>
-<tr>
-  <td class="td-id">A-09</td>
-  <td>Popup open → dismiss with ESC</td>
-  <td>character_select; _cs_popup="how"</td>
-  <td>Press ESC</td>
-  <td>_cs_popup = None; popup closes</td>
-  <td><span class="badge b-pass">PASS</span></td>
-  <td>Lines 590–592</td>
-</tr>
-<tr>
-  <td class="td-id">A-10</td>
-  <td>Popup open → dismiss by clicking outside</td>
-  <td>character_select; _cs_popup visible</td>
-  <td>Click outside popup rect</td>
-  <td>_cs_popup = None</td>
-  <td><span class="badge b-pass">PASS</span></td>
-  <td>Lines 606–608</td>
-</tr>
-</tbody></table></div>
-
-<h2 id="tc-play">TC-B: Playing State — Core Loop</h2>
-<div class="test-table-wrap"><table>
-<thead><tr><th>ID</th><th>Title</th><th>Expected Result</th><th>Status</th><th>Notes</th></tr></thead>
-<tbody>
-<tr><td class="td-id">B-01</td><td>WASD movement moves player</td><td>player_x / player_y updated each frame</td><td><span class="badge b-pass">PASS</span></td><td>Lines 688–691</td></tr>
-<tr><td class="td-id">B-02</td><td>Arrow key movement</td><td>Same as WASD</td><td><span class="badge b-pass">PASS</span></td><td>Same block</td></tr>
-<tr><td class="td-id">B-03</td><td>Rock collision — X axis independent</td><td>Player slides along rock surface on X-only collision</td><td><span class="badge b-pass">PASS</span></td><td>Lines 693–696; axis-split correctly</td></tr>
-<tr><td class="td-id">B-04</td><td>Rock collision — Y axis independent</td><td>Player slides along rock surface on Y-only collision</td><td><span class="badge b-pass">PASS</span></td><td>Same</td></tr>
-<tr><td class="td-id">B-05</td><td>Player clamped to screen bounds</td><td>player_x in [40, 960]; player_y in [50, 660]</td><td><span class="badge b-pass">PASS</span></td><td>Lines 698–699</td></tr>
-<tr><td class="td-id">B-06</td><td>SPACE catch — creature within 55px</td><td>Creature removed; score increases; float text shown; catch sound plays</td><td><span class="badge b-pass">PASS</span></td><td>Lines 630–659</td></tr>
-<tr><td class="td-id">B-07</td><td>SPACE catch — only one creature per keypress</td><td>At most one creature removed per SPACE press</td><td><span class="badge b-pass">PASS</span></td><td>Line 659: break after first catch</td></tr>
-<tr><td class="td-id">B-08</td><td>Bomb collision — score reduced by 100</td><td>score = max(0, score - 100)</td><td><span class="badge b-pass">PASS</span></td><td>Line 707</td></tr>
-<tr><td class="td-id">B-09</td><td>Bomb collision — 90-frame cooldown</td><td>Subsequent bomb hits within 90 frames ignored</td><td><span class="badge b-pass">PASS</span></td><td>Lines 702–718</td></tr>
-<tr><td class="td-id">B-10</td><td>Score cannot go below 0</td><td>score clamped at 0</td><td><span class="badge b-pass">PASS</span></td><td>Line 707: max(0, score - 100)</td></tr>
-<tr><td class="td-id">B-11</td><td>Timer counts down correctly while playing</td><td>time_left decreases at real-time rate</td><td><span class="badge b-pass">PASS</span></td><td>Lines 772–773 use get_ticks delta</td></tr>
-<tr><td class="td-id">B-12</td><td>Timer paused correctly during pause state</td><td>Timer does not advance while paused</td><td><span class="badge b-pass">PASS</span></td><td>_total_paused_ms subtracted correctly; update block only runs in "playing" state</td></tr>
-<tr><td class="td-id">B-13</td><td>Float text rises and fades</td><td>Float text moves upward, alpha fades over 1s timer</td><td><span class="badge b-pass">PASS</span></td><td>Lines 1155–1159</td></tr>
-<tr><td class="td-id">B-14</td><td>Bomb repositions after hit</td><td>Hit bomb moves to new random valid position</td><td><span class="badge b-pass">PASS</span></td><td>Line 717: _spawn_bomb_random()</td></tr>
-</tbody></table></div>
-
-<h2 id="tc-streak">TC-C: Catch Streak Multiplier (#3)</h2>
-<div class="test-table-wrap"><table>
-<thead><tr><th>ID</th><th>Title</th><th>Expected Result</th><th>Status</th><th>Notes</th></tr></thead>
-<tbody>
-<tr><td class="td-id">C-01</td><td>First 2 catches: multiplier = 1.0x</td><td>Catches 1–2 score at base points</td><td><span class="badge b-pass">PASS</span></td><td>streak=1,2 → neither threshold reached</td></tr>
-<tr><td class="td-id">C-02</td><td>3rd catch triggers 1.5x — applied to 3rd catch</td><td>3rd catch scores at 1.5x base</td><td><span class="badge b-fail">FAIL</span></td><td>3rd catch still scores at 1.0x; multiplier updated after scoring. See HIGH-01</td></tr>
-<tr><td class="td-id">C-03</td><td>6th catch triggers 2.0x — applied to 6th catch</td><td>6th catch scores at 2.0x base</td><td><span class="badge b-fail">FAIL</span></td><td>Same off-by-one bug. See HIGH-01</td></tr>
-<tr><td class="td-id">C-04</td><td>Bomb hit resets streak to 0 and multiplier to 1.0x</td><td>catch_streak=0; streak_multiplier=1.0</td><td><span class="badge b-pass">PASS</span></td><td>Lines 711–712</td></tr>
-<tr><td class="td-id">C-05</td><td>Streak pill shows only when multiplier &gt; 1.0</td><td>Pill hidden at 1.0x; visible at 1.5x and 2.0x</td><td><span class="badge b-pass">PASS</span></td><td>Line 1168: if streak_multiplier &gt; 1.0</td></tr>
-<tr><td class="td-id">C-06</td><td>Streak at exactly 5, bomb hits — resets to 0</td><td>Multiplier drops to 1.0x from 1.5x</td><td><span class="badge b-pass">PASS</span></td><td>Reset logic unconditional on bomb</td></tr>
-<tr><td class="td-id">C-07</td><td>Streak pill color: gold at 2.0x, accent at 1.5x</td><td>Color matches spec</td><td><span class="badge b-pass">PASS</span></td><td>Line 1169</td></tr>
-</tbody></table></div>
-
-<h2 id="tc-escalation">TC-D: Late-Game Escalation (#4)</h2>
-<div class="test-table-wrap"><table>
-<thead><tr><th>ID</th><th>Title</th><th>Expected Result</th><th>Status</th><th>Notes</th></tr></thead>
-<tbody>
-<tr><td class="td-id">D-01</td><td>Escalation triggers only once</td><td>_escalation_triggered set to True on first trigger; condition not re-evaluated</td><td><span class="badge b-pass">PASS</span></td><td>Line 776: "not _escalation_triggered" guard</td></tr>
-<tr><td class="td-id">D-02</td><td>5th bomb added on escalation</td><td>len(bombs) goes from 4 to 5</td><td><span class="badge b-pass">PASS</span></td><td>Line 779: bombs.append(...)</td></tr>
-<tr><td class="td-id">D-03</td><td>bob speed increases to 3.5 on escalation</td><td>_bob_speed = 3.5</td><td><span class="badge b-pass">PASS</span></td><td>Line 778</td></tr>
-<tr><td class="td-id">D-04</td><td>Post-escalation wave size is 10</td><td>spawn_creatures(10) called after wave clear when escalated</td><td><span class="badge b-pass">PASS</span></td><td>Line 768</td></tr>
-<tr><td class="td-id">D-05</td><td>5th bomb appears without cooldown — immediate hit risk</td><td>No cooldown applied to newly appended bomb</td><td><span class="badge b-partial">PARTIAL</span></td><td>If bomb_cooldown is currently 0 and player is near spawn, immediate hit possible. See LOW-04</td></tr>
-<tr><td class="td-id">D-06</td><td>Escalation reset on new game</td><td>_escalation_triggered = False; _bob_speed = 2.0 on reset_game()</td><td><span class="badge b-pass">PASS</span></td><td>Lines 494–495</td></tr>
-</tbody></table></div>
-
-<h2 id="tc-behavior">TC-E: Creature Behaviors (#5)</h2>
-<div class="test-table-wrap"><table>
-<thead><tr><th>ID</th><th>Title</th><th>Expected Result</th><th>Status</th><th>Notes</th></tr></thead>
-<tbody>
-<tr><td class="td-id">E-01</td><td>Pacer (Fire Drake) orbits spawn center</td><td>Creature circles orbit_cx/cy with orbit_r=30; angle advances each frame</td><td><span class="badge b-pass">PASS</span></td><td>Lines 729–731</td></tr>
-<tr><td class="td-id">E-02</td><td>Pacer orbit stays within map bounds</td><td>Orbit center is spawn position; worst case orbit_r=30 from spawn</td><td><span class="badge b-pass">PASS</span></td><td>Spawn bounds 80–800/80–620 with 30px orbit margin — acceptable</td></tr>
-<tr><td class="td-id">E-03</td><td>Blinker (Water Sprite) teleports on timer</td><td>Every 2–4s creature jumps up to 40px in each axis; clamped to [80,800] × [80,620]</td><td><span class="badge b-pass">PASS</span></td><td>Lines 733–739</td></tr>
-<tr><td class="td-id">E-04</td><td>Blinker cannot teleport into lake</td><td>No lake check on blinker teleport</td><td><span class="badge b-fail">FAIL</span></td><td>Lines 736–739: x/y clamped to bounds but no in_lake() check. Blinker CAN land in a lake after teleport. Spawn avoids lakes but teleport does not.</td></tr>
-<tr><td class="td-id">E-05</td><td>Drifter (Electric Spark) bounces at edges</td><td>vx/vy inverted at x=80/800 and y=80/HEIGHT-80; position clamped</td><td><span class="badge b-pass">PASS</span></td><td>Lines 743–748</td></tr>
-<tr><td class="td-id">E-06</td><td>Fader (Shadow Phantom) alpha by distance</td><td>At &gt;100px from player: fades; at &lt;=100px: full alpha</td><td><span class="badge b-pass">PASS</span></td><td>Line 1084 formula</td></tr>
-<tr><td class="td-id">E-07</td><td>Fader alpha floor at 50 (never invisible)</td><td>Alpha never below 50</td><td><span class="badge b-pass">PASS</span></td><td>Line 1084: max(50, ...)</td></tr>
-<tr><td class="td-id">E-08</td><td>Static (Forest Guardian) — no movement</td><td>Position unchanged per frame</td><td><span class="badge b-pass">PASS</span></td><td>No "static" branch in update — falls through correctly</td></tr>
-</tbody></table></div>
-
-<h2 id="tc-fadein">TC-F: Spawn Fade-In (#9)</h2>
-<div class="test-table-wrap"><table>
-<thead><tr><th>ID</th><th>Title</th><th>Expected Result</th><th>Status</th><th>Notes</th></tr></thead>
-<tbody>
-<tr><td class="td-id">F-01</td><td>Newly spawned creature starts at alpha=0</td><td>spawn_alpha=0.0 on creation</td><td><span class="badge b-pass">PASS</span></td><td>Line 449</td></tr>
-<tr><td class="td-id">F-02</td><td>Alpha reaches 1.0 in 0.4s</td><td>spawn_alpha += dt/0.4 per frame; reaches 1.0 after 0.4s</td><td><span class="badge b-pass">PASS</span></td><td>Line 751</td></tr>
-<tr><td class="td-id">F-03</td><td>Cannot catch creature at &lt;50% alpha</td><td>Catch attempt with spawn_alpha &lt; 0.5 skipped</td><td><span class="badge b-pass">PASS</span></td><td>Line 633</td></tr>
-<tr><td class="td-id">F-04</td><td>Proximity label shows for uncatchable fading creature</td><td>Label appears even when creature is at &lt;50% alpha (distance-based)</td><td><span class="badge b-partial">PARTIAL</span></td><td>Proximity check (line 1114) does not exclude fading creatures. Label shown, SPACE hints catch — but catch fails silently. No visual indicator that creature is uncatchable yet. Minor UX issue.</td></tr>
-<tr><td class="td-id">F-05</td><td>Fader behavior combined with fade-in alpha</td><td>Alpha is min(spawn_alpha*255, fader_alpha)</td><td><span class="badge b-pass">PASS</span></td><td>Line 1085: min(_c_alpha, fader_alpha)</td></tr>
-</tbody></table></div>
-
-<h2 id="tc-pause">TC-G: Pause Menu (#10)</h2>
-<div class="test-table-wrap"><table>
-<thead><tr><th>ID</th><th>Title</th><th>Expected Result</th><th>Status</th><th>Notes</th></tr></thead>
-<tbody>
-<tr><td class="td-id">G-01</td><td>ESC pauses; screenshot captured</td><td>Screenshot blit from current screen; overlay shown</td><td><span class="badge b-pass">PASS</span></td><td>Lines 626–628</td></tr>
-<tr><td class="td-id">G-02</td><td>Timer frozen during pause</td><td>elapsed does not advance while paused</td><td><span class="badge b-pass">PASS</span></td><td>Update block skipped entirely in paused state</td></tr>
-<tr><td class="td-id">G-03</td><td>Total paused time accumulated correctly across multiple pauses</td><td>_total_paused_ms sums all pause intervals</td><td><span class="badge b-pass">PASS</span></td><td>Line 665: += not =</td></tr>
-<tr><td class="td-id">G-04</td><td>ESC resumes correctly from pause</td><td>_total_paused_ms updated; state = "playing"</td><td><span class="badge b-pass">PASS</span></td><td>Lines 664–666</td></tr>
-<tr><td class="td-id">G-05</td><td>Q quits to menu from pause</td><td>State = "character_select"</td><td><span class="badge b-pass">PASS</span></td><td>Line 668 (but see MED-05)</td></tr>
-<tr><td class="td-id">G-06</td><td>Pause during escalation (5 bombs active)</td><td>All 5 bombs suspended; timer not counted; resumes with 5 bombs</td><td><span class="badge b-pass">PASS</span></td><td>No creature/bomb updates run during paused state</td></tr>
-<tr><td class="td-id">G-07</td><td>Countdown tick sound does not fire during pause</td><td>No tick sound during pause</td><td><span class="badge b-pass">PASS</span></td><td>Tick check in update block only; update skipped in paused state</td></tr>
-</tbody></table></div>
-
-<h2 id="tc-stats">TC-H: Stats Persistence (#11 / #14)</h2>
-<div class="test-table-wrap"><table>
-<thead><tr><th>ID</th><th>Title</th><th>Expected Result</th><th>Status</th><th>Notes</th></tr></thead>
-<tbody>
-<tr><td class="td-id">H-01</td><td>stats.json created on first game-over</td><td>File written via _save_stats()</td><td><span class="badge b-pass">PASS</span></td><td>Line 794</td></tr>
-<tr><td class="td-id">H-02</td><td>Corrupted stats.json handled gracefully</td><td>JSONDecodeError caught; _stats uses empty defaults</td><td><span class="badge b-pass">PASS</span></td><td>Lines 155–157; missing-key guards at 158–161</td></tr>
-<tr><td class="td-id">H-03</td><td>Trainer personal best updated on new high</td><td>trainer_bests[str(selected_char)] updated if score &gt; current best</td><td><span class="badge b-pass">PASS</span></td><td>Lines 792–793</td></tr>
-<tr><td class="td-id">H-04</td><td>Trainer personal best shown on game-over screen</td><td>Displays current best BEFORE this game is compared</td><td><span class="badge b-pass">PASS</span></td><td>Score saved and _stats updated before draw; line 989 reads updated value</td></tr>
-<tr><td class="td-id">H-05</td><td>Cumulative catch counter increments per creature caught</td><td>total_catches[creature_name] += 1 per catch</td><td><span class="badge b-pass">PASS</span></td><td>Line 649</td></tr>
-<tr><td class="td-id">H-06</td><td>Per-trainer best NOT saved on Q-quit from pause</td><td>In-progress best is discarded if player Q-quits</td><td><span class="badge b-fail">FAIL</span></td><td>Stats save only at line 794 inside time_left&lt;=0 block. Q-quit path has no save. See MED-05</td></tr>
-<tr><td class="td-id">H-07</td><td>Missing stats.json — game loads with empty defaults</td><td>_stats = {"total_catches":{}, "trainer_bests":{}}</td><td><span class="badge b-pass">PASS</span></td><td>Lines 151, 158–161</td></tr>
-<tr><td class="td-id">H-08</td><td>All-time counter shown on game-over</td><td>sum of all total_catches values displayed</td><td><span class="badge b-pass">PASS</span></td><td>Lines 994–996</td></tr>
-</tbody></table></div>
-
-<h2 id="tc-sound">TC-I: Sound FX (#1)</h2>
-<div class="test-table-wrap"><table>
-<thead><tr><th>ID</th><th>Title</th><th>Expected Result</th><th>Status</th><th>Notes</th></tr></thead>
-<tbody>
-<tr><td class="td-id">I-01</td><td>Sound generation failure does not crash game</td><td>All sound vars = None on exception; _play() guards None</td><td><span class="badge b-pass">PASS</span></td><td>Lines 56–62, 64–69</td></tr>
-<tr><td class="td-id">I-02</td><td>Catch sound plays on successful catch</td><td>_snd_catch played</td><td><span class="badge b-pass">PASS</span></td><td>Line 657</td></tr>
-<tr><td class="td-id">I-03</td><td>Bomb sound plays on bomb hit</td><td>_snd_bomb played</td><td><span class="badge b-pass">PASS</span></td><td>Line 716</td></tr>
-<tr><td class="td-id">I-04</td><td>Tick sound plays for final 5 seconds, once per second</td><td>_snd_tick plays when time_left 5,4,3,2,1; not repeated per frame</td><td><span class="badge b-pass">PASS</span></td><td>Lines 782–784: _last_tick_second guard prevents repeat</td></tr>
-<tr><td class="td-id">I-05</td><td>Game-over sound plays once</td><td>_snd_gameover played once when state changes to game_over</td><td><span class="badge b-pass">PASS</span></td><td>Line 789; inside time_left&lt;=0 block which runs once</td></tr>
-<tr><td class="td-id">I-06</td><td>Tick sound does not play during pause</td><td>No tick during pause (update block not executed)</td><td><span class="badge b-pass">PASS</span></td><td>Verified; _last_tick_second persists and prevents ghost ticks on resume</td></tr>
-</tbody></table></div>
-
-<h2 id="tc-newfeatures">TC-J: Remaining New Features (#2 #6 #7 #8 #12 #13 #15)</h2>
-<div class="test-table-wrap"><table>
-<thead><tr><th>ID</th><th>Title</th><th>Expected Result</th><th>Status</th><th>Notes</th></tr></thead>
-<tbody>
-<tr><td class="td-id">J-01</td><td>#2 Bomb positions random on reset</td><td>4 bombs spawned at valid random positions (not in lake, not on rocks, 80px from player)</td><td><span class="badge b-pass">PASS</span></td><td>Lines 480, 401–410</td></tr>
-<tr><td class="td-id">J-02</td><td>#2 Fallback bomb pos if 10 attempts fail</td><td>Falls back to randint(100, WIDTH-100) — no crash</td><td><span class="badge b-pass">PASS</span></td><td>Line 410</td></tr>
-<tr><td class="td-id">J-03</td><td>#6 Catch pop animation — shrinks over 150ms</td><td>Scale goes from 1.0 to 0 over timer=0.15s</td><td><span class="badge b-pass">PASS</span></td><td>Lines 1101–1109</td></tr>
-<tr><td class="td-id">J-04</td><td>#6 Catch pop does not crash if image missing</td><td>No error if sticker surface not found</td><td><span class="badge b-pass">PASS</span></td><td>Line 1105: .get() returns None; if _stk skips block</td></tr>
-<tr><td class="td-id">J-05</td><td>#7 Zone weighting — Water Sprite near pond</td><td>weight=3.0 when near pond; others 1.0</td><td><span class="badge b-pass">PASS</span></td><td>Lines 427, 433–434</td></tr>
-<tr><td class="td-id">J-06</td><td>#7 Zone weighting — Forest Guardian near tree</td><td>weight=3.0 when near tree</td><td><span class="badge b-pass">PASS</span></td><td>Lines 428, 435–436</td></tr>
-<tr><td class="td-id">J-07</td><td>#7 Zone weighting — Shadow Phantom in school</td><td>weight=3.0 when x&lt;350 and y&lt;300</td><td><span class="badge b-pass">PASS</span></td><td>Lines 429, 437–438</td></tr>
-<tr><td class="td-id">J-08</td><td>#8 Screen shake — world offset applied for 6 frames</td><td>shake_frames decrements; shake_magnitude decrements each frame</td><td><span class="badge b-pass">PASS</span></td><td>Lines 759–761</td></tr>
-<tr><td class="td-id">J-09</td><td>#8 HUD pills not shaken</td><td>score_pill, timer_pill, streak_pill at fixed coords</td><td><span class="badge b-pass">PASS</span></td><td>Lines 1162, 1171, 1180 — no shake offset</td></tr>
-<tr><td class="td-id">J-10</td><td>#8 Bomb flash surface not shaken</td><td>bomb_flash blit at (0,0) — correct, it's a full-screen tint</td><td><span class="badge b-pass">PASS</span></td><td>Line 1152</td></tr>
-<tr><td class="td-id">J-11</td><td>#8 Proximity label not shaken — position drifts from creature</td><td>Label follows creature world position + shake</td><td><span class="badge b-fail">FAIL</span></td><td>Shake offset missing from label anchor. See MED-01</td></tr>
-<tr><td class="td-id">J-12</td><td>#12 Spawn X capped at 800</td><td>px = randint(80, 800) — creatures never spawn in east road corridor</td><td><span class="badge b-pass">PASS</span></td><td>Line 419</td></tr>
-<tr><td class="td-id">J-13</td><td>#13 0.8s spawn delay after wave clear</td><td>_spawn_delay_timer reaches 0.8 before next wave</td><td><span class="badge b-pass">PASS</span></td><td>Lines 764–770</td></tr>
-<tr><td class="td-id">J-14</td><td>#13 Spawn delay reset when creatures exist</td><td>_spawn_delay_timer = 0.0 when creatures &gt; 0</td><td><span class="badge b-pass">PASS</span></td><td>Line 770</td></tr>
-<tr><td class="td-id">J-15</td><td>#15 Colorblind initial on sticker bottom-right</td><td>F/W/G/E/S rendered in sticker surface at module init</td><td><span class="badge b-pass">PASS</span></td><td>Lines 243–244</td></tr>
-</tbody></table></div>
-
-<h2 id="tc-edge">TC-K: Edge Cases &amp; Boundary Analysis</h2>
-<div class="test-table-wrap"><table>
-<thead><tr><th>ID</th><th>Title</th><th>Expected Result</th><th>Status</th><th>Notes</th></tr></thead>
-<tbody>
-<tr><td class="td-id">K-01</td><td>score=0 at game-over — no high-score glow</td><td>is_new_high_score=False; no gold flash</td><td><span class="badge b-pass">PASS</span></td><td>Line 787: score &gt; 0 guard</td></tr>
-<tr><td class="td-id">K-02</td><td>score=0 at game-over — player cannot return to menu without name entry</td><td>Player trapped until name submitted</td><td><span class="badge b-fail">FAIL</span></td><td>See HIGH-02</td></tr>
-<tr><td class="td-id">K-03</td><td>Empty name submit (ENTER with name_input="")</td><td>Nothing happens — blocked by len(name_input) &gt; 0 guard</td><td><span class="badge b-pass">PASS</span></td><td>Line 678</td></tr>
-<tr><td class="td-id">K-04</td><td>Max 5-char name enforced</td><td>6th character not accepted</td><td><span class="badge b-pass">PASS</span></td><td>Line 674: len(name_input) &lt; 5</td></tr>
-<tr><td class="td-id">K-05</td><td>Name input: alphanumeric only</td><td>Symbols/spaces rejected; isalnum() guard</td><td><span class="badge b-pass">PASS</span></td><td>Line 674</td></tr>
-<tr><td class="td-id">K-06</td><td>No highscores.txt — game loads without error</td><td>high_scores = []; no crash</td><td><span class="badge b-pass">PASS</span></td><td>Lines 134–147; os.path.exists guard</td></tr>
-<tr><td class="td-id">K-07</td><td>Corrupted highscores.txt (bad int) — handled</td><td>ValueError caught; high_scores = []</td><td><span class="badge b-pass">PASS</span></td><td>Line 146</td></tr>
-<tr><td class="td-id">K-08</td><td>Wave clears instantly (all creatures caught rapidly) — delay fires</td><td>0.8s spawn delay; next wave spawns</td><td><span class="badge b-pass">PASS</span></td><td>Lines 764–768</td></tr>
-<tr><td class="td-id">K-09</td><td>Catch streak at exactly 3 — multiplier update timing bug</td><td>Should be 1.5x on 3rd catch; actually on 4th</td><td><span class="badge b-fail">FAIL</span></td><td>See HIGH-01</td></tr>
-<tr><td class="td-id">K-10</td><td>Pause immediately on game start (t=0)</td><td>_pause_start_ms set; no division by zero</td><td><span class="badge b-pass">PASS</span></td><td>No division in pause path</td></tr>
-<tr><td class="td-id">K-11</td><td>Multiple pauses and resumes — cumulative timer accurate</td><td>_total_paused_ms accumulates correctly</td><td><span class="badge b-pass">PASS</span></td><td>Verified by += semantics</td></tr>
-<tr><td class="td-id">K-12</td><td>Blinker teleports near lake boundary — can land in lake</td><td>Should avoid lake</td><td><span class="badge b-fail">FAIL</span></td><td>No in_lake() check in blinker update. See E-04</td></tr>
-<tr><td class="td-id">K-13</td><td>Drifter spawns near edge — immediate bounce</td><td>vx/vy inverted; clamped to bounds</td><td><span class="badge b-pass">PASS</span></td><td>Lines 743–748</td></tr>
-<tr><td class="td-id">K-14</td><td>Fader at exactly 100px — alpha=255</td><td>fader_alpha = max(50, 255-(0)*2.05) = 255</td><td><span class="badge b-pass">PASS</span></td><td>Formula correct at boundary</td></tr>
-<tr><td class="td-id">K-15</td><td>Score animation: score not multiple of 10 (e.g., Shadow Phantom at 2.0x = 140)</td><td>Animation increments by 10; may stop at 130, then jump to 140</td><td><span class="badge b-pass">PASS</span></td><td>Line 825: min(score, int(timer/0.05)*10); final clamp ensures correct end value</td></tr>
-<tr><td class="td-id">K-16</td><td>Score animation with score=0</td><td>_go_anim_score stays 0; _go_anim_done=True immediately</td><td><span class="badge b-pass">PASS</span></td><td>Line 825: min(0,...)=0; line 826: 0&gt;=0 → done</td></tr>
-</tbody></table></div>
-
-<h2 id="tc-perf">TC-L: Performance &amp; Surface Allocation Audit</h2>
-<div class="note"><strong>Note:</strong> "Per-frame" means the allocation occurs inside the main while loop with no caching. At 60 FPS, each per-frame allocation is 60 allocations/sec of that size.</div>
-<div class="test-table-wrap"><table>
-<thead><tr><th>ID</th><th>Surface / Allocation</th><th>Size</th><th>Frequency</th><th>Status</th><th>Finding</th></tr></thead>
-<tbody>
-<tr><td class="td-id">L-01</td><td>_world_surf (background)</td><td>1000×700 RGB</td><td>Once at startup</td><td><span class="badge b-pass">PASS</span></td><td>Pre-rendered</td></tr>
-<tr><td class="td-id">L-02</td><td>Shadow surfaces (tree/rock/bomb/creature/trainer)</td><td>Various, SRCALPHA</td><td>Once at startup</td><td><span class="badge b-pass">PASS</span></td><td>Pre-rendered</td></tr>
-<tr><td class="td-id">L-03</td><td>_sticker_surfs per creature type</td><td>72×72 SRCALPHA × 5</td><td>Once at startup</td><td><span class="badge b-pass">PASS</span></td><td>Pre-rendered</td></tr>
-<tr><td class="td-id">L-04</td><td>_fade_sticker_surf (temporary for alpha blit)</td><td>72×72 SRCALPHA</td><td>Once; reused per frame</td><td><span class="badge b-pass">PASS</span></td><td>Correctly reused</td></tr>
-<tr><td class="td-id">L-05</td><td>_prox_pill_surf / _prox_border_surf</td><td>500×40 SRCALPHA × 2</td><td>Once; reused with fill()</td><td><span class="badge b-pass">PASS</span></td><td>Correctly reused</td></tr>
-<tr><td class="td-id">L-06</td><td>_pause_overlay</td><td>1000×700 SRCALPHA</td><td>Once at startup</td><td><span class="badge b-pass">PASS</span></td><td>Pre-rendered</td></tr>
-<tr><td class="td-id">L-07</td><td>_go_bg_pulse_surf</td><td>1000×700 SRCALPHA</td><td>fill() each frame (no new alloc)</td><td><span class="badge b-pass">PASS</span></td><td>Acceptable — fill only, no new Surface</td></tr>
-<tr><td class="td-id">L-08</td><td>Bubble Surface per bubble</td><td>50×50 SRCALPHA × 14</td><td>Per frame on game-over (840/sec)</td><td><span class="badge b-fail">FAIL</span></td><td>See MED-04 — highest allocation rate in codebase</td></tr>
-<tr><td class="td-id">L-09</td><td>Best Scores popup Surface</td><td>380×220 SRCALPHA</td><td>Per frame while popup open (60/sec)</td><td><span class="badge b-fail">FAIL</span></td><td>See MED-02</td></tr>
-<tr><td class="td-id">L-10</td><td>font.render("Score: N") during playing</td><td>~120×36 RGB</td><td>Per frame (60/sec)</td><td><span class="badge b-fail">FAIL</span></td><td>See MED-03</td></tr>
-<tr><td class="td-id">L-11</td><td>font.render("Time: Ns") during playing</td><td>~130×36 RGB</td><td>Per frame (60/sec)</td><td><span class="badge b-fail">FAIL</span></td><td>See MED-03</td></tr>
-<tr><td class="td-id">L-12</td><td>small_font.render streak text</td><td>~50×24 RGB</td><td>Per frame when streak_multiplier&gt;1.0</td><td><span class="badge b-fail">FAIL</span></td><td>See MED-03</td></tr>
-<tr><td class="td-id">L-13</td><td>tiny_font.render arrow hint on char select</td><td>~230×14 RGB</td><td>Per frame on char select</td><td><span class="badge b-fail">FAIL</span></td><td>See LOW-01</td></tr>
-<tr><td class="td-id">L-14</td><td>prox_font.render label during playing</td><td>Variable width, ~20px height</td><td>Per frame when creature in range</td><td><span class="badge b-fail">FAIL</span></td><td>See LOW-02</td></tr>
-<tr><td class="td-id">L-15</td><td>score_big_font.render(_go_anim_score)</td><td>~120×72 RGB</td><td>Per frame on game-over</td><td><span class="badge b-partial">PARTIAL</span></td><td>Animating value changes rapidly (every 0.05s * ~60fps = 3 frames/step); caching possible but lower priority while animating</td></tr>
-<tr><td class="td-id">L-16</td><td>catch pop: smoothscale of sticker per animation</td><td>Variable</td><td>Per frame per active animation</td><td><span class="badge b-pass">PASS</span></td><td>Animation count limited; 150ms duration; acceptable</td></tr>
-<tr><td class="td-id">L-17</td><td>_make_float_text: allocates Surface per float event</td><td>Variable</td><td>On catch/bomb hit events only</td><td><span class="badge b-pass">PASS</span></td><td>Event-driven, not per-frame; acceptable</td></tr>
-</tbody></table></div>
-
-<h2 id="tc-interaction">TC-M: Feature Interaction Matrix</h2>
-<div class="test-table-wrap"><table class="matrix">
-<thead>
-<tr>
-  <th style="text-align:left">Interaction</th>
-  <th>Scenario</th>
-  <th>Status</th>
-  <th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr><td style="text-align:left">Catch during screen shake</td><td>Player catches creature while shake_frames &gt; 0</td><td><span class="badge b-pass">PASS</span></td><td>Catch logic uses world coords (c["x"], c["y"]); independent of shake offset</td></tr>
-<tr><td style="text-align:left">Pause during escalation</td><td>Player pauses after 5th bomb appears</td><td><span class="badge b-pass">PASS</span></td><td>5 bombs remain on resume; _escalation_triggered persists</td></tr>
-<tr><td style="text-align:left">Streak during fade-in</td><td>Player catches 3 creatures, one is fading in (&lt;50%)</td><td><span class="badge b-pass">PASS</span></td><td>Fading creature skipped by catch; streak counts only successful catches</td></tr>
-<tr><td style="text-align:left">Bomb hit during streak=5</td><td>Bomb hit at streak 5 (1.5x active)</td><td><span class="badge b-pass">PASS</span></td><td>Streak resets to 0; multiplier to 1.0x; bomb cooldown applied</td></tr>
-<tr><td style="text-align:left">Blinker teleport during fade-in</td><td>Blinker teleports while spawn_alpha &lt; 0.5</td><td><span class="badge b-pass">PASS</span></td><td>Blinker timer still counts; teleport repositions creature; spawn_alpha continues ascending</td></tr>
-<tr><td style="text-align:left">Wave clear during escalation</td><td>All 10 creatures caught post-escalation</td><td><span class="badge b-pass">PASS</span></td><td>spawn_creatures(10) called; _escalation_triggered=True persists</td></tr>
-<tr><td style="text-align:left">Fader + spawn_alpha combined</td><td>Newly spawned Phantom; player far away</td><td><span class="badge b-pass">PASS</span></td><td>Both alphas applied via min(); creature starts doubly invisible</td></tr>
-<tr><td style="text-align:left">Score=0 + no high scores file</td><td>First ever run; game over with 0 pts</td><td><span class="badge b-fail">FAIL</span></td><td>Player stuck; no way to leave game-over screen except name entry. See HIGH-02</td></tr>
-<tr><td style="text-align:left">Tick sound + pause at 5s</td><td>Timer hits 5; player pauses; resumes</td><td><span class="badge b-pass">PASS</span></td><td>_last_tick_second=5 persists; tick for second 5 not replayed on resume</td></tr>
-<tr><td style="text-align:left">Catch pop + screen shake</td><td>Catch creature; bomb hit on same frame (unlikely but possible)</td><td><span class="badge b-pass">PASS</span></td><td>Both systems independent; catch pop uses world coords + shake offset; both display correctly</td></tr>
-</tbody></table></div>
-
-<!-- ═══════════════════════════ REGRESSION STATUS ═══════════════════════════ -->
-<hr>
-<h2 id="regression">Regression Status — Previously Fixed Issues</h2>
-<p style="color:var(--muted); margin-bottom:14px;">The following defects were fixed in QA passes 1–3. All confirmed resolved in this pass-4 audit.</p>
-<div class="test-table-wrap"><table>
-<thead><tr><th>Prior ID</th><th>Title</th><th>Pass Status</th><th>Evidence</th></tr></thead>
-<tbody>
-<tr><td class="td-id">CRIT-05</td><td>High-scores parser crashed on non-integer tokens</td><td><span class="badge b-pass">CONFIRMED RESOLVED</span></td><td>rsplit + int() + ValueError catch at lines 142–147</td></tr>
-<tr><td class="td-id">HIGH-08</td><td>All creatures failed to load if one image was missing</td><td><span class="badge b-pass">CONFIRMED RESOLVED</span></td><td>Per-image try/except at lines 181–191</td></tr>
-<tr><td class="td-id">HIGH-09</td><td>Rock collision allowed player to clip through diagonally</td><td><span class="badge b-pass">CONFIRMED RESOLVED</span></td><td>Axis-independent collision at lines 693–696</td></tr>
-<tr><td class="td-id">MED-01 (pass3)</td><td>1–4 keys immediate start vs. arrow select inconsistency</td><td><span class="badge b-partial">STILL OPEN</span></td><td>Lines 594–597; downgraded to LOW-03 this pass</td></tr>
-<tr><td class="td-id">MED-02 (pass3)</td><td>Popup keyboard dismiss only responded to ESC</td><td><span class="badge b-pass">CONFIRMED RESOLVED</span></td><td>ESC correctly closes popup at line 592</td></tr>
-<tr><td class="td-id">MED-03 (pass3)</td><td>Best Scores popup per-frame surface alloc</td><td><span class="badge b-partial">STILL OPEN</span></td><td>Elevated to MED-02 this pass; lines 923–937</td></tr>
-<tr><td class="td-id">LOW-01 (pass3)</td><td>Arrow hint rendered per frame</td><td><span class="badge b-partial">STILL OPEN</span></td><td>Carried as LOW-01 this pass; line 912</td></tr>
-<tr><td class="td-id">LOW-02 (pass3)</td><td>Score entry text no width clamp</td><td><span class="badge b-pass">CONFIRMED RESOLVED</span></td><td>len(name_input) &lt; 5 enforced at line 674</td></tr>
-</tbody></table></div>
-
-<!-- ═══════════════════════════ SUMMARY ═══════════════════════════ -->
-<hr>
-<h2>Summary &amp; Recommended Action Plan</h2>
-<div class="dashboard" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; margin-bottom:24px;">
-  <div class="dash-card" style="border-left: 4px solid var(--high); text-align:left; padding: 14px 18px;">
-    <div class="label" style="margin-bottom:8px;">P0 — Fix Before Release</div>
-    <div style="color:var(--white); font-size:0.9rem; line-height:1.8;">
-      <strong style="color:var(--high)">HIGH-01:</strong> Streak multiplier off-by-one at thresholds<br>
-      <strong style="color:var(--high)">HIGH-02:</strong> Player stuck on game-over at score=0 / no R-key escape
-    </div>
-  </div>
-  <div class="dash-card" style="border-left: 4px solid var(--med); text-align:left; padding: 14px 18px;">
-    <div class="label" style="margin-bottom:8px;">P1 — Fix This Sprint</div>
-    <div style="color:var(--white); font-size:0.9rem; line-height:1.8;">
-      <strong style="color:var(--med)">MED-01:</strong> Proximity label shake offset missing<br>
-      <strong style="color:var(--med)">MED-04:</strong> 840 SRCALPHA allocs/sec on game-over bubbles<br>
-      <strong style="color:var(--med)">MED-05:</strong> Q-quit discards in-progress personal best
-    </div>
-  </div>
-  <div class="dash-card" style="border-left: 4px solid var(--med); text-align:left; padding: 14px 18px;">
-    <div class="label" style="margin-bottom:8px;">P2 — Fix Next Sprint</div>
-    <div style="color:var(--white); font-size:0.9rem; line-height:1.8;">
-      <strong style="color:var(--med)">MED-02:</strong> Best Scores popup per-frame alloc<br>
-      <strong style="color:var(--med)">MED-03:</strong> Score/Timer/Streak font.render per frame<br>
-      <strong style="color:var(--low)">LOW-04:</strong> 5th escalation bomb no cooldown / warning<br>
-      <strong style="color:var(--low)">LOW-03:</strong> 1–4 keys immediate-start inconsistency
-    </div>
-  </div>
-  <div class="dash-card" style="border-left: 4px solid var(--low); text-align:left; padding: 14px 18px;">
-    <div class="label" style="margin-bottom:8px;">P3 — Backlog</div>
-    <div style="color:var(--white); font-size:0.9rem; line-height:1.8;">
-      <strong style="color:var(--low)">LOW-01:</strong> Arrow hint rendered per frame<br>
-      <strong style="color:var(--low)">LOW-02:</strong> Proximity label rendered per frame<br>
-      <strong style="color:var(--info)">INFO:</strong> Blinker teleport can land in lake (E-04)
-    </div>
-  </div>
-</div>
-
-<div class="note" style="margin-top:8px;">
-  <strong>New feature coverage:</strong> All 15 new features have been statically traced through the codebase. 12 of 15 are fully correct as implemented. Feature #3 (streak) has a boundary defect (HIGH-01). Feature #9 (fade-in) has a minor UX gap (F-04 — no visual indication that creature is uncatchable during fade). Feature #5 blinker behavior has a correctness gap (E-04 — lake avoidance not applied on teleport).
-</div>
-
-<p style="color:var(--muted); font-size:0.8rem; margin-top:28px;">
-  Report generated by QALeadMaster &nbsp;|&nbsp; Static analysis — code trace, no runtime execution &nbsp;|&nbsp; geocatch_pygame.py lines 1–1189 &nbsp;|&nbsp; 2026-03-08
-</p>
 
 </body>
 </html>

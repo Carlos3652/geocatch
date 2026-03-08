@@ -42,17 +42,19 @@ def _gen_tone(freq, duration_ms=100, volume=0.3, freq_end=None):
     n = int(sr * duration_ms / 1000)
     if n == 0:
         return None
-    buf = _array.array('h', [0] * n)
     fe = freq_end if freq_end else freq
-    for i in range(n):
-        t = i / sr
-        f = freq + (fe - freq) * (i / n)
-        fade = 1.0
-        fs = int(n * 0.75)
-        if i > fs and n > fs:
-            fade = (n - i) / (n - fs)
-        val = int(volume * 32767 * math.sin(2 * math.pi * f * t) * fade)
-        buf[i] = max(-32768, min(32767, val))
+    fs = int(n * 0.75)
+    inv_sr = 1.0 / sr
+    inv_n = 1.0 / n if n > 0 else 0
+    inv_fade = 1.0 / (n - fs) if n > fs else 1.0
+    amp = volume * 32767
+    two_pi = 2 * math.pi
+    buf = _array.array('h', [
+        max(-32768, min(32767, int(
+            amp * math.sin(two_pi * (freq + (fe - freq) * i * inv_n) * i * inv_sr)
+            * (((n - i) * inv_fade) if i > fs else 1.0)
+        ))) for i in range(n)
+    ])
     return pygame.mixer.Sound(buffer=buf)
 
 try:
@@ -69,6 +71,10 @@ def _play(snd):
             snd.play()
         except Exception:
             pass
+
+def _fader_alpha(dist):
+    """Consistent fader alpha calculation — HIGH-03 shared helper."""
+    return int(max(50, min(255, 255 - (dist - 100) * 2.05)))
 
 # Your trainers
 trainer_images = []
@@ -310,9 +316,9 @@ for _ct in CREATURE_TYPES:
 _phantom_glow_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
 _pulse_ring_surf = pygame.Surface((124, 124), pygame.SRCALPHA)
 
-# Pre-allocated game-over surfaces
-_go_flash_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-_go_flash_surf.fill((255, 140, 0, 80))
+# Pre-allocated game-over surfaces — CRIT-02: non-SRCALPHA so set_alpha() works
+_go_flash_surf = pygame.Surface((WIDTH, HEIGHT))
+_go_flash_surf.fill((255, 140, 0))
 _go_bg_pulse_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 
 # Pre-allocated bomb flash surface
@@ -326,6 +332,34 @@ _alpha_mod_surf = pygame.Surface((_STICKER_SIZE, _STICKER_SIZE), pygame.SRCALPHA
 # Pre-allocated proximity label surfaces
 _prox_pill_surf = pygame.Surface((500, 40), pygame.SRCALPHA)
 _prox_border_surf = pygame.Surface((500, 40), pygame.SRCALPHA)
+
+# CRIT-03: Pre-rendered proximity label text surfaces (one per creature type)
+_prox_labels = {}
+for _ct in CREATURE_TYPES:
+    _plbl = f"{_ct['name']}  --  {_ct['points']} pts  |  SPACE to catch"
+    _prox_labels[_ct["name"]] = prox_font.render(_plbl, True, WHITE)
+
+# HIGH-05: Pre-baked streak multiplier pill surfaces
+_streak_pills = {}
+for _sv, _sc in [(1.5, ACCENT), (2.0, SCORE_GOLD)]:
+    _st = small_font.render(f"x{_sv:.1f}", True, _sc)
+    _sp_w, _sp_h = _st.get_width() + 20, 28
+    _sp_surf = pygame.Surface((_sp_w, _sp_h), pygame.SRCALPHA)
+    pygame.draw.rect(_sp_surf, PANEL_BG, (0, 0, _sp_w, _sp_h), border_radius=14)
+    pygame.draw.rect(_sp_surf, _sc, (0, 0, _sp_w, _sp_h), width=2, border_radius=14)
+    _sp_surf.blit(_st, (10, 2))
+    _streak_pills[_sv] = _sp_surf
+
+# MED-03/05: Pre-rendered static end screen text
+_go_no_scores = tiny_font.render("No scores yet!", True, (120, 120, 130))
+_go_saved = small_font.render("Saved!", True, (100, 230, 100))
+_go_saved_hint = tiny_font.render("Press R to play again", True, (180, 180, 190))
+_go_noscore = small_font.render("No score", True, (160, 160, 170))
+_go_noscore_hint = tiny_font.render("Press R to try again", True, (140, 140, 150))
+_go_enter_hint = tiny_font.render("Press ENTER to save", True, (140, 200, 140))
+_go_save_title = tiny_font.render("SAVE YOUR SCORE", True, SCORE_GOLD)
+_go_name_lbl = tiny_font.render("Name (max 5 chars):", True, (160, 160, 170))
+_trainer_fallback = font.render("T", True, WHITE)  # LOW-01: pre-rendered trainer fallback
 
 # Pre-allocated pause overlay surfaces (#10)
 _pause_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -519,6 +553,7 @@ def reset_game():
     global catch_streak, streak_multiplier, catch_animations, shake_frames, shake_magnitude
     global _total_paused_ms, _pause_start_ms, _escalation_triggered, _bob_speed
     global _spawn_delay_timer, _last_tick_second
+    global _go_cache, _go_fireworks, _go_caught_keys, _cs_popup
     score = 0
     game_time = 60
     inventory = []
@@ -545,6 +580,10 @@ def reset_game():
     _bob_speed = 2.0
     _spawn_delay_timer = 0.0
     _last_tick_second = -1
+    _go_cache = None
+    _go_fireworks = []
+    _go_caught_keys = set()
+    _cs_popup = None
 
 
 # ── Card Spotlight start screen surfaces ──────────────────────────────────────
@@ -666,8 +705,9 @@ while running:
                     if event.key == pygame.K_ESCAPE:
                         _cs_popup = None
                 else:
-                    if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4]:
-                        selected_char = int(event.unicode) - 1
+                    _char_keys = {pygame.K_1: 0, pygame.K_2: 1, pygame.K_3: 2, pygame.K_4: 3}
+                    if event.key in _char_keys:
+                        selected_char = _char_keys[event.key]
                         game_state = "playing"
                         reset_game()
                     elif event.key in [pygame.K_RETURN, pygame.K_KP_ENTER]:
@@ -709,7 +749,7 @@ while running:
                         _eff_alpha = c.get("spawn_alpha", 1.0) * 255
                         if c.get("behavior") == "fader":
                             _fd = math.hypot(c["x"] - player_x, c["y"] - player_y)
-                            _eff_alpha = min(_eff_alpha, max(50, 255 - (_fd - 100) * 2.05))
+                            _eff_alpha = min(_eff_alpha, _fader_alpha(_fd))
                         if _eff_alpha < 128:
                             continue
                         if math.hypot(player_x - c["x"], player_y - c["y"]) < 55:
@@ -831,16 +871,18 @@ while running:
                         _ny = max(80, min(HEIGHT - 80, _ny))
                         if not in_lake(_nx, _ny) and not any(math.hypot(_nx - rx, _ny - ry) < 65 for rx, ry in rocks):
                             c["x"], c["y"] = _nx, _ny
+                            c["spawn_alpha"] = 0.3  # LOW-03: fade in at new position
                             break
             elif beh == "drifter":
-                _nx = c["x"] + c.get("vx", 0) * dt
-                _ny = c["y"] + c.get("vy", 0) * dt
+                _ox, _oy = c["x"], c["y"]  # HIGH-04: preserve original pos for both axis checks
+                _nx = _ox + c.get("vx", 0) * dt
+                _ny = _oy + c.get("vy", 0) * dt
                 # Bounce off bounds, lakes, and rocks
-                if _nx < 80 or _nx > 800 or in_lake(_nx, c["y"]) or any(math.hypot(_nx - rx, c["y"] - ry) < 65 for rx, ry in rocks):
+                if _nx < 80 or _nx > 800 or in_lake(_nx, _oy) or any(math.hypot(_nx - rx, _oy - ry) < 65 for rx, ry in rocks):
                     c["vx"] = -c.get("vx", 0)
                 else:
                     c["x"] = _nx
-                if _ny < 80 or _ny > HEIGHT - 80 or in_lake(c["x"], _ny) or any(math.hypot(c["x"] - rx, _ny - ry) < 65 for rx, ry in rocks):
+                if _ny < 80 or _ny > HEIGHT - 80 or in_lake(_ox, _ny) or any(math.hypot(_ox - rx, _ny - ry) < 65 for rx, ry in rocks):
                     c["vy"] = -c.get("vy", 0)
                 else:
                     c["y"] = _ny
@@ -909,6 +951,8 @@ while running:
                 _tier_msg, _tier_color = "AMAZING RUN!", (100, 220, 255)
             elif _unique_caught >= 2:
                 _tier_msg, _tier_color = "GREAT JOB!", (120, 230, 120)
+            elif _unique_caught == 1:
+                _tier_msg, _tier_color = "GOOD START!", (180, 200, 220)
             else:
                 _tier_msg, _tier_color = "NICE TRY!", (200, 200, 210)
             # Fireworks particles (high score only)
@@ -916,17 +960,17 @@ while running:
             if is_new_high_score:
                 for _ in range(30):
                     _fw_color = random.choice(list(CREATURE_COLORS.values()))
+                    _fw_life = random.uniform(1.5, 3.0)
                     _go_fireworks.append({
                         "x": random.randint(50, WIDTH - 50),
                         "y": random.randint(30, HEIGHT // 2),
                         "vx": random.uniform(-60, 60),
                         "vy": random.uniform(-80, 20),
-                        "life": random.uniform(1.5, 3.0),
-                        "max_life": 0.0,
+                        "life": _fw_life,
+                        "max_life": _fw_life,
                         "color": _fw_color,
                         "r": random.randint(2, 5),
                     })
-                    _go_fireworks[-1]["max_life"] = _go_fireworks[-1]["life"]
             _go_cache = {
                 "tier": tier_font.render(_tier_msg, True, _tier_color),
                 "tier_shadow": tier_font.render(_tier_msg, True, (0, 0, 0)),
@@ -1064,7 +1108,6 @@ while running:
         screen.fill((14, 16, 32))
         # Subtle animated top gradient band
         _pulse_alpha = int(8 + 6 * abs(math.sin(_ticks * 0.6)))
-        _go_bg_pulse_surf.fill((0, 0, 0, 0))
         _go_bg_pulse_surf.fill((25, 30, 55, _pulse_alpha))
         screen.blit(_go_bg_pulse_surf, (0, 0))
 
@@ -1073,13 +1116,13 @@ while running:
             _go_flash_surf.set_alpha(int((_go_flash_timer / 0.5) * 80))
             screen.blit(_go_flash_surf, (0, 0))
 
-        # Firework particles (high score only)
+        # Firework particles (high score only) — HIGH-02: modulate RGB by life fraction
         for fw in _go_fireworks:
-            _fw_alpha = max(0, min(255, int(255 * fw["life"] / fw["max_life"])))
-            pygame.draw.circle(screen, (*fw["color"], ), (int(fw["x"]), int(fw["y"])), fw["r"])
-            if _fw_alpha < 200:
-                # Trail dot
-                pygame.draw.circle(screen, (*fw["color"],), (int(fw["x"] - fw["vx"] * 0.02), int(fw["y"] - fw["vy"] * 0.02)), max(1, fw["r"] - 1))
+            _fw_frac = max(0.0, min(1.0, fw["life"] / fw["max_life"]))
+            _fw_col = (int(fw["color"][0] * _fw_frac), int(fw["color"][1] * _fw_frac), int(fw["color"][2] * _fw_frac))
+            pygame.draw.circle(screen, _fw_col, (int(fw["x"]), int(fw["y"])), fw["r"])
+            if _fw_frac < 0.8:
+                pygame.draw.circle(screen, _fw_col, (int(fw["x"] - fw["vx"] * 0.02), int(fw["y"] - fw["vy"] * 0.02)), max(1, fw["r"] - 1))
 
         cx = WIDTH // 2
         go_y = 20
@@ -1098,8 +1141,8 @@ while running:
             screen.blit(_go_cache["hs_glow"], (cx - _go_cache["hs_glow"].get_width() // 2 + 2, _hs_y + 2))
             screen.blit(_go_cache["hs"], (cx - _go_cache["hs"].get_width() // 2, _hs_y + _hs_pulse))
 
-        # ── Creature Showcase Row ──
-        _showcase_y = go_y + 90
+        # ── Creature Showcase Row ── MED-04: dynamic y to avoid HS banner overlap
+        _showcase_y = go_y + 100 if is_new_high_score else go_y + 70
         _stk_spacing = _SHOWCASE_SIZE + 16
         _row_w = 5 * _stk_spacing - 16
         _row_x = cx - _row_w // 2
@@ -1130,19 +1173,20 @@ while running:
             screen.blit(_trainer_img, (_mid_left + _trainer_area_w // 2 - 35, _mid_y))
         else:
             pygame.draw.circle(screen, (100, 100, 120), (_mid_left + _trainer_area_w // 2, _mid_y + 45), 30)
-            _fb = small_font.render("T", True, WHITE)
-            screen.blit(_fb, (_mid_left + _trainer_area_w // 2 - _fb.get_width() // 2, _mid_y + 32))
+            screen.blit(_trainer_fallback, (_mid_left + _trainer_area_w // 2 - _trainer_fallback.get_width() // 2, _mid_y + 32))
 
         # Score card (right of trainer)
         _sc_x = _mid_left + _trainer_area_w + 20
         _sc_h = 92
         pygame.draw.rect(screen, (26, 28, 48), (_sc_x, _mid_y, _score_card_w, _sc_h), border_radius=12)
         pygame.draw.rect(screen, (60, 65, 90), (_sc_x, _mid_y, _score_card_w, _sc_h), width=1, border_radius=12)
-        # Animated score
-        if _go_anim_done and _go_cache and "_score_final" not in _go_cache:
-            _go_cache["_score_final"] = score_big_font.render(str(_go_anim_score), True, SCORE_GOLD)
-        if _go_cache and "_score_final" in _go_cache:
-            _score_text = _go_cache["_score_final"]
+        # Animated score — CRIT-01: cache by displayed value to avoid per-frame 72pt render
+        if _go_cache:
+            _displayed = str(_go_anim_score)
+            if _go_cache.get("_score_val") != _displayed:
+                _go_cache["_score_val"] = _displayed
+                _go_cache["_score_surf"] = score_big_font.render(_displayed, True, SCORE_GOLD)
+            _score_text = _go_cache["_score_surf"]
         else:
             _score_text = score_big_font.render(str(_go_anim_score), True, SCORE_GOLD)
         screen.blit(_score_text, (_sc_x + _score_card_w // 2 - _score_text.get_width() // 2, _mid_y + 4))
@@ -1173,27 +1217,20 @@ while running:
                 for i, _line in enumerate(_go_cache["lb_lines"]):
                     screen.blit(_line, (_left_x + 20, _bot_y + 30 + i * 26))
             else:
-                _no = tiny_font.render("No scores yet!", True, (120, 120, 130))
-                screen.blit(_no, (_left_x + _col_w // 2 - _no.get_width() // 2, _bot_y + 60))
+                screen.blit(_go_no_scores, (_left_x + _col_w // 2 - _go_no_scores.get_width() // 2, _bot_y + 60))
 
         # Right column: Name entry
         pygame.draw.rect(screen, (22, 24, 42), (_right_x, _bot_y, _col_w, 170), border_radius=10)
         pygame.draw.rect(screen, (50, 55, 80), (_right_x, _bot_y, _col_w, 170), width=1, border_radius=10)
         if score_saved:
-            _sv1 = small_font.render("Saved!", True, (100, 230, 100))
-            screen.blit(_sv1, (_right_x + _col_w // 2 - _sv1.get_width() // 2, _bot_y + 50))
-            _sv2 = tiny_font.render("Press R to play again", True, (180, 180, 190))
-            screen.blit(_sv2, (_right_x + _col_w // 2 - _sv2.get_width() // 2, _bot_y + 85))
+            screen.blit(_go_saved, (_right_x + _col_w // 2 - _go_saved.get_width() // 2, _bot_y + 50))
+            screen.blit(_go_saved_hint, (_right_x + _col_w // 2 - _go_saved_hint.get_width() // 2, _bot_y + 85))
         elif score == 0:
-            _z1 = small_font.render("No score", True, (160, 160, 170))
-            screen.blit(_z1, (_right_x + _col_w // 2 - _z1.get_width() // 2, _bot_y + 55))
-            _z2 = tiny_font.render("Press R to try again", True, (140, 140, 150))
-            screen.blit(_z2, (_right_x + _col_w // 2 - _z2.get_width() // 2, _bot_y + 85))
+            screen.blit(_go_noscore, (_right_x + _col_w // 2 - _go_noscore.get_width() // 2, _bot_y + 55))
+            screen.blit(_go_noscore_hint, (_right_x + _col_w // 2 - _go_noscore_hint.get_width() // 2, _bot_y + 85))
         else:
-            _ne_title = tiny_font.render("SAVE YOUR SCORE", True, SCORE_GOLD)
-            screen.blit(_ne_title, (_right_x + _col_w // 2 - _ne_title.get_width() // 2, _bot_y + 12))
-            _ne_lbl = tiny_font.render("Name (max 5 chars):", True, (160, 160, 170))
-            screen.blit(_ne_lbl, (_right_x + _col_w // 2 - _ne_lbl.get_width() // 2, _bot_y + 40))
+            screen.blit(_go_save_title, (_right_x + _col_w // 2 - _go_save_title.get_width() // 2, _bot_y + 12))
+            screen.blit(_go_name_lbl, (_right_x + _col_w // 2 - _go_name_lbl.get_width() // 2, _bot_y + 40))
             # Pill input
             _pill_w, _pill_h = 180, 38
             _pill_x = _right_x + _col_w // 2 - _pill_w // 2
@@ -1204,8 +1241,7 @@ while running:
             _name_surf = small_font.render(f"{name_input}{cursor}", True, WHITE)
             screen.blit(_name_surf, (_pill_x + _pill_w // 2 - _name_surf.get_width() // 2, _pill_y + 7))
             if len(name_input) > 0:
-                _enter_hint = tiny_font.render("Press ENTER to save", True, (140, 200, 140))
-                screen.blit(_enter_hint, (_right_x + _col_w // 2 - _enter_hint.get_width() // 2, _bot_y + 108))
+                screen.blit(_go_enter_hint, (_right_x + _col_w // 2 - _go_enter_hint.get_width() // 2, _bot_y + 108))
 
         # ── Always-visible navigation ──
         if _go_cache:
@@ -1273,8 +1309,7 @@ while running:
             _c_alpha = int(c.get("spawn_alpha", 1.0) * 255)
             if c.get("behavior") == "fader":
                 dist = math.hypot(c["x"] - player_x, c["y"] - player_y)
-                fader_alpha = int(max(50, min(255, 255 - (dist - 100) * 2.05)))
-                _c_alpha = min(_c_alpha, fader_alpha)
+                _c_alpha = min(_c_alpha, _fader_alpha(dist))
 
             _stk = _sticker_surfs.get(c["type"]["image_key"])
             if _stk:
@@ -1308,8 +1343,7 @@ while running:
                 closest_dist = d
                 closest_c = c
         if closest_c is not None:
-            label_str = f"{closest_c['type']['name']}  --  {closest_c['type']['points']} pts  |  SPACE to catch"
-            label_text = prox_font.render(label_str, True, WHITE)
+            label_text = _prox_labels[closest_c['type']['name']]
             lw, lh = label_text.get_width(), label_text.get_height()
             pad_x, pad_y = 10, 5
             lbl_x = int(closest_c["x"]) + _shake_ox - lw // 2 - pad_x
@@ -1358,14 +1392,11 @@ while running:
             reset_game._sc_cache = (score, font.render(f"Score: {score}", True, SCORE_GOLD))
         screen.blit(reset_game._sc_cache[1], (score_pill_rect.x + 16, score_pill_rect.y + 6))
 
-        # #3: Streak multiplier pill (below score)
+        # #3: Streak multiplier pill (below score) — HIGH-05: pre-baked surfaces
         if streak_multiplier > 1.0:
-            _streak_color = SCORE_GOLD if streak_multiplier >= 2.0 else ACCENT
-            _streak_text = small_font.render(f"x{streak_multiplier:.1f}", True, _streak_color)
-            _streak_pill = pygame.Rect(15, 60, _streak_text.get_width() + 20, 28)
-            pygame.draw.rect(screen, PANEL_BG, _streak_pill, border_radius=14)
-            pygame.draw.rect(screen, _streak_color, _streak_pill, width=2, border_radius=14)
-            screen.blit(_streak_text, (_streak_pill.x + 10, _streak_pill.y + 2))
+            _sp = _streak_pills.get(streak_multiplier)
+            if _sp:
+                screen.blit(_sp, (15, 60))
 
         # Timer pill (top-right)
         elapsed = (pygame.time.get_ticks() - start_ticks - _total_paused_ms) / 1000
