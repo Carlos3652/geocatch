@@ -92,7 +92,7 @@ start_ticks = 0
 name_input = ""
 float_texts = []
 bomb_flash_frames = 0
-bomb_cooldown = 0
+bomb_cooldown = 0.0
 dt = 1 / 60
 is_new_high_score = False
 score_saved = False
@@ -165,9 +165,13 @@ def save_high_score(name, sc):
     high_scores.append((name, sc))
     high_scores.sort(key=lambda x: x[1], reverse=True)
     high_scores = high_scores[:5]
-    with open("highscores.txt", "w") as f:
-        for n, s in high_scores:
-            f.write(f"{n} {s}\n")
+    try:
+        with open("highscores.txt", "w") as f:
+            for n, s in high_scores:
+                f.write(f"{n} {s}\n")
+    except OSError:
+        pass
+    _build_scores_popup()
 
 def _save_stats():
     try:
@@ -276,8 +280,9 @@ _go_bg_pulse_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 _bomb_flash_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 _bomb_flash_surf.fill((255, 0, 0, 26))
 
-# Pre-allocated fade sticker surface (#9)
+# Pre-allocated fade sticker surface (#9) + alpha modulation surface
 _fade_sticker_surf = pygame.Surface((_STICKER_SIZE, _STICKER_SIZE), pygame.SRCALPHA)
+_alpha_mod_surf = pygame.Surface((_STICKER_SIZE, _STICKER_SIZE), pygame.SRCALPHA)
 
 # Pre-allocated proximity label surfaces
 _prox_pill_surf = pygame.Surface((500, 40), pygame.SRCALPHA)
@@ -407,6 +412,12 @@ def _spawn_bomb_random():
                 and not any(math.hypot(bx - rx, by - ry) < 55 for rx, ry in rocks)
                 and math.hypot(bx - player_x, by - player_y) > 80):
             return (bx, by)
+    # Fallback: still try to avoid lake at minimum
+    for _ in range(5):
+        fbx = random.randint(100, WIDTH - 100)
+        fby = random.randint(100, HEIGHT - 100)
+        if not in_lake(fbx, fby):
+            return (fbx, fby)
     return (random.randint(100, WIDTH - 100), random.randint(100, HEIGHT - 100))
 
 
@@ -480,7 +491,7 @@ def reset_game():
     bombs = [_spawn_bomb_random() for _ in range(4)]
     float_texts.clear()
     bomb_flash_frames = 0
-    bomb_cooldown = 0
+    bomb_cooldown = 0.0
     name_input = ""
     score_saved = False
     is_new_high_score = False
@@ -542,6 +553,7 @@ _cs_btn_h = _cs_btn_text_surf.get_height() + 14
 _cs_btn_surf = pygame.Surface((_cs_btn_w, _cs_btn_h), pygame.SRCALPHA)
 _cs_btn_surf.fill((*ACCENT[:3], 230))
 
+_cs_arrow_hint  = tiny_font.render("< A/D or Arrow Keys to browse >", True, (120, 120, 120))
 _cs_link_how    = tiny_font.render("[?] How to Play", True, (150, 150, 150))
 _cs_link_scores = tiny_font.render("[*] Best Scores", True, (150, 150, 150))
 _cs_link_how_rect    = pygame.Rect(0, 0, 0, 0)
@@ -567,6 +579,30 @@ for _bi, _bt_str in enumerate(_how_bullets):
     _cs_popup_how.blit(_bl, (20, 48 + _bi * 24))
 
 _cs_popup_rect = pygame.Rect(0, 0, _CS_POPUP_W, _CS_POPUP_H)
+
+# Pre-rendered scores popup (rebuilt when scores change)
+_cs_popup_scores = None
+_cs_popup_scores_ver = -1  # tracks len(high_scores) to detect changes
+
+def _build_scores_popup():
+    global _cs_popup_scores, _cs_popup_scores_ver
+    _cs_popup_scores_ver = len(high_scores)
+    _sp = pygame.Surface((_CS_POPUP_W, _CS_POPUP_H), pygame.SRCALPHA)
+    _sp.fill((26, 26, 46, 240))
+    pygame.draw.rect(_sp, (*ACCENT[:3], 160), (0, 0, _CS_POPUP_W, _CS_POPUP_H), width=2, border_radius=10)
+    _st = small_font.render("BEST SCORES", True, ACCENT)
+    _sp.blit(_st, (_CS_POPUP_W // 2 - _st.get_width() // 2, 14))
+    if high_scores:
+        for _si, (_sn, _ss) in enumerate(high_scores[:5]):
+            _sc = SCORE_GOLD if _si == 0 else (200, 200, 200)
+            _sl = small_font.render(f"{_si+1}.  {_sn}  --  {_ss}", True, _sc)
+            _sp.blit(_sl, (40, 50 + _si * 30))
+    else:
+        _ne = tiny_font.render("No scores yet -- be the first!", True, (150, 150, 150))
+        _sp.blit(_ne, (_CS_POPUP_W // 2 - _ne.get_width() // 2, 80))
+    _cs_popup_scores = _sp
+
+_build_scores_popup()
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -630,20 +666,25 @@ while running:
                     for i in range(len(creatures) - 1, -1, -1):
                         c = creatures[i]
                         # #9: can't catch creatures still fading in (<50% alpha)
-                        if c.get("spawn_alpha", 1.0) < 0.5:
+                        # Also check fader behavior alpha (invisible phantoms)
+                        _eff_alpha = c.get("spawn_alpha", 1.0) * 255
+                        if c.get("behavior") == "fader":
+                            _fd = math.hypot(c["x"] - player_x, c["y"] - player_y)
+                            _eff_alpha = min(_eff_alpha, max(50, 255 - (_fd - 100) * 2.05))
+                        if _eff_alpha < 128:
                             continue
                         if math.hypot(player_x - c["x"], player_y - c["y"]) < 55:
                             caught = c["type"]
-                            # #3: Apply streak multiplier
-                            base_pts = caught["points"]
-                            pts = int(base_pts * streak_multiplier)
-                            score += pts
-                            inventory.append(caught["name"])
+                            # #3: Increment streak first, then apply multiplier
                             catch_streak += 1
                             if catch_streak >= 6:
                                 streak_multiplier = 2.0
                             elif catch_streak >= 3:
                                 streak_multiplier = 1.5
+                            base_pts = caught["points"]
+                            pts = int(base_pts * streak_multiplier)
+                            score += pts
+                            inventory.append(caught["name"])
                             float_texts.append(_make_float_text(f"+{pts}", c["x"], c["y"], SCORE_GOLD))
                             # #14: Update cumulative stats
                             _stats["total_catches"][caught["name"]] = _stats["total_catches"].get(caught["name"], 0) + 1
@@ -665,17 +706,21 @@ while running:
                     _total_paused_ms += pygame.time.get_ticks() - _pause_start_ms
                     game_state = "playing"
                 elif event.key == pygame.K_q:
+                    _total_paused_ms += pygame.time.get_ticks() - _pause_start_ms
+                    _save_stats()
                     game_state = "character_select"
 
         elif game_state == "game_over":
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_r and score_saved:
+                if event.key == pygame.K_r and (score_saved or score == 0):
                     game_state = "character_select"
-                elif not score_saved and len(name_input) < 5 and event.unicode.isalnum():
+                elif event.key == pygame.K_q:
+                    game_state = "character_select"
+                elif not score_saved and score > 0 and len(name_input) < 5 and event.unicode.isalnum():
                     name_input += event.unicode.upper()
                 elif not score_saved and event.key == pygame.K_BACKSPACE:
                     name_input = name_input[:-1]
-                elif not score_saved and event.key == pygame.K_RETURN and len(name_input) > 0:
+                elif not score_saved and score > 0 and event.key == pygame.K_RETURN and len(name_input) > 0:
                     save_high_score(name_input, score)
                     name_input = ""
                     score_saved = True
@@ -698,12 +743,12 @@ while running:
         player_x = max(40, min(WIDTH - 40, player_x))
         player_y = max(50, min(HEIGHT - 40, player_y))
 
-        # Bomb collision
+        # Bomb collision (time-based cooldown)
         if bomb_cooldown > 0:
-            bomb_cooldown -= 1
+            bomb_cooldown = max(0.0, bomb_cooldown - dt)
         for i in range(len(bombs) - 1, -1, -1):
             bx, by = bombs[i]
-            if bomb_cooldown == 0 and math.hypot(player_x - bx, player_y - by) < 40:
+            if bomb_cooldown <= 0 and math.hypot(player_x - bx, player_y - by) < 40:
                 score = max(0, score - 100)
                 float_texts.append(_make_float_text("\u2212100", bx, by, (255, 82, 82)))
                 bomb_flash_frames = 3
@@ -715,7 +760,7 @@ while running:
                 shake_magnitude = 8
                 _play(_snd_bomb)  # #1
                 bombs[i] = _spawn_bomb_random()
-                bomb_cooldown = 90
+                bomb_cooldown = 1.5
                 break
 
         for ft in float_texts:
@@ -733,19 +778,27 @@ while running:
                 c["blink_timer"] -= dt
                 if c["blink_timer"] <= 0:
                     c["blink_timer"] = random.uniform(2.0, 4.0)
-                    c["x"] += random.randint(-40, 40)
-                    c["y"] += random.randint(-40, 40)
-                    c["x"] = max(80, min(800, c["x"]))
-                    c["y"] = max(80, min(HEIGHT - 80, c["y"]))
+                    # Try up to 5 positions to avoid lake/rocks
+                    for _ba in range(5):
+                        _nx = c["x"] + random.randint(-40, 40)
+                        _ny = c["y"] + random.randint(-40, 40)
+                        _nx = max(80, min(800, _nx))
+                        _ny = max(80, min(HEIGHT - 80, _ny))
+                        if not in_lake(_nx, _ny) and not any(math.hypot(_nx - rx, _ny - ry) < 65 for rx, ry in rocks):
+                            c["x"], c["y"] = _nx, _ny
+                            break
             elif beh == "drifter":
-                c["x"] += c.get("vx", 0) * dt
-                c["y"] += c.get("vy", 0) * dt
-                if c["x"] < 80 or c["x"] > 800:
+                _nx = c["x"] + c.get("vx", 0) * dt
+                _ny = c["y"] + c.get("vy", 0) * dt
+                # Bounce off bounds, lakes, and rocks
+                if _nx < 80 or _nx > 800 or in_lake(_nx, c["y"]) or any(math.hypot(_nx - rx, c["y"] - ry) < 65 for rx, ry in rocks):
                     c["vx"] = -c.get("vx", 0)
-                    c["x"] = max(80, min(800, c["x"]))
-                if c["y"] < 80 or c["y"] > HEIGHT - 80:
+                else:
+                    c["x"] = _nx
+                if _ny < 80 or _ny > HEIGHT - 80 or in_lake(c["x"], _ny) or any(math.hypot(c["x"] - rx, _ny - ry) < 65 for rx, ry in rocks):
                     c["vy"] = -c.get("vy", 0)
-                    c["y"] = max(80, min(HEIGHT - 80, c["y"]))
+                else:
+                    c["y"] = _ny
             # #9: fade-in alpha
             if c.get("spawn_alpha", 1.0) < 1.0:
                 c["spawn_alpha"] = min(1.0, c.get("spawn_alpha", 0.0) + dt / 0.4)
@@ -798,17 +851,20 @@ while running:
             _go_anim_timer = 0.0
             _go_flash_timer = 0.5 if is_new_high_score else 0.0
             _bubble_colors = list(CREATURE_COLORS.values())
-            _go_bubbles = [
-                {
+            _go_bubbles = []
+            for _ in range(14):
+                _brx = random.randint(10, 22)
+                _bry = random.randint(7, 15)
+                _bcol = random.choice(_bubble_colors)
+                _bsurf = pygame.Surface((50, 50), pygame.SRCALPHA)
+                pygame.draw.ellipse(_bsurf, (*_bcol, 90),
+                                    (25 - _brx, 25 - _bry, _brx * 2, _bry * 2))
+                _go_bubbles.append({
                     "x": random.randint(20, WIDTH - 20),
                     "y": HEIGHT + random.randint(10, 80),
-                    "rx": random.randint(10, 22),
-                    "ry": random.randint(7, 15),
-                    "color": random.choice(_bubble_colors),
                     "speed": random.randint(30, 80),
-                }
-                for _ in range(14)
-            ]
+                    "_surf": _bsurf,
+                })
             _go_cache = {
                 "go": font.render("TIME'S UP - GAME OVER", True, (255, 60, 60)),
                 "final": font.render(f"Final Score: {score}", True, WHITE),
@@ -822,7 +878,7 @@ while running:
     elif game_state == "game_over":
         if not _go_anim_done:
             _go_anim_timer += dt
-            _go_anim_score = min(score, int(_go_anim_timer / 0.05) * 10)
+            _go_anim_score = min(score, int(_go_anim_timer * 200))
             if _go_anim_score >= score:
                 _go_anim_score = score
                 _go_anim_done = True
@@ -909,8 +965,7 @@ while running:
         screen.blit(_cs_link_scores, (lx2, link_y))
         _cs_link_scores_rect.update(lx2, link_y, _cs_link_scores.get_width(), _cs_link_scores.get_height())
 
-        _arrow_hint = tiny_font.render("< A/D or Arrow Keys to browse >", True, (120, 120, 120))
-        screen.blit(_arrow_hint, (cx - _arrow_hint.get_width() // 2, link_y + 22))
+        screen.blit(_cs_arrow_hint, (cx - _cs_arrow_hint.get_width() // 2, link_y + 22))
 
         if _cs_popup == "how":
             px = cx - _CS_POPUP_W // 2
@@ -921,20 +976,7 @@ while running:
             px = cx - _CS_POPUP_W // 2
             py = HEIGHT // 2 - _CS_POPUP_H // 2
             _cs_popup_rect.update(px, py, _CS_POPUP_W, _CS_POPUP_H)
-            _sp = pygame.Surface((_CS_POPUP_W, _CS_POPUP_H), pygame.SRCALPHA)
-            _sp.fill((26, 26, 46, 240))
-            pygame.draw.rect(_sp, (*ACCENT[:3], 160), (0, 0, _CS_POPUP_W, _CS_POPUP_H), width=2, border_radius=10)
-            _st = small_font.render("BEST SCORES", True, ACCENT)
-            _sp.blit(_st, (_CS_POPUP_W // 2 - _st.get_width() // 2, 14))
-            if high_scores:
-                for _si, (_sn, _ss) in enumerate(high_scores[:5]):
-                    _sc = SCORE_GOLD if _si == 0 else (200, 200, 200)
-                    _sl = small_font.render(f"{_si+1}.  {_sn}  --  {_ss}", True, _sc)
-                    _sp.blit(_sl, (40, 50 + _si * 30))
-            else:
-                _ne = tiny_font.render("No scores yet -- be the first!", True, (150, 150, 150))
-                _sp.blit(_ne, (_CS_POPUP_W // 2 - _ne.get_width() // 2, 80))
-            screen.blit(_sp, (px, py))
+            screen.blit(_cs_popup_scores, (px, py))
 
     elif game_state == "game_over":
         # Celebration Mode background
@@ -945,13 +987,8 @@ while running:
         _go_bg_pulse_surf.fill((20, 20, 40, _pulse_alpha))
         screen.blit(_go_bg_pulse_surf, (0, 0))
 
-        _bubble_surf_size = 50
         for b in _go_bubbles:
-            _bs = pygame.Surface((_bubble_surf_size, _bubble_surf_size), pygame.SRCALPHA)
-            pygame.draw.ellipse(_bs, (*b["color"], 90),
-                                (_bubble_surf_size // 2 - b["rx"], _bubble_surf_size // 2 - b["ry"],
-                                 b["rx"] * 2, b["ry"] * 2))
-            screen.blit(_bs, (int(b["x"]) - _bubble_surf_size // 2, int(b["y"]) - _bubble_surf_size // 2))
+            screen.blit(b["_surf"], (int(b["x"]) - 25, int(b["y"]) - 25))
 
         if _go_flash_timer > 0:
             _go_flash_surf.set_alpha(int((_go_flash_timer / 0.5) * 80))
@@ -964,12 +1001,20 @@ while running:
             screen.blit(_go_cache["glow"], (cx - _go_cache["glow"].get_width() // 2 + 2, go_y - 36 + 2))
             screen.blit(_go_cache["gold"], (cx - _go_cache["gold"].get_width() // 2, go_y - 36))
 
-        screen.blit(_go_cache["go"], (cx - _go_cache["go"].get_width() // 2, go_y))
+        if _go_cache:
+            screen.blit(_go_cache["go"], (cx - _go_cache["go"].get_width() // 2, go_y))
 
-        _score_text = score_big_font.render(str(_go_anim_score), True, SCORE_GOLD)
+        # Cache score text after animation completes to avoid per-frame render
+        if _go_anim_done and _go_cache and "_score_final" not in _go_cache:
+            _go_cache["_score_final"] = score_big_font.render(str(_go_anim_score), True, SCORE_GOLD)
+        if _go_cache and "_score_final" in _go_cache:
+            _score_text = _go_cache["_score_final"]
+        else:
+            _score_text = score_big_font.render(str(_go_anim_score), True, SCORE_GOLD)
         screen.blit(_score_text, (cx - _score_text.get_width() // 2, go_y + 45))
 
-        screen.blit(_go_cache["count"], (cx - _go_cache["count"].get_width() // 2, go_y + 125))
+        if _go_cache:
+            screen.blit(_go_cache["count"], (cx - _go_cache["count"].get_width() // 2, go_y + 125))
 
         # Creature dots row
         caught_count = len(inventory)
@@ -1089,9 +1134,9 @@ while running:
                 if _c_alpha < 255:
                     _fade_sticker_surf.fill((0, 0, 0, 0))
                     _fade_sticker_surf.blit(_stk, (0, 0))
-                    _fade_sticker_surf.set_alpha(_c_alpha)
+                    _alpha_mod_surf.fill((255, 255, 255, _c_alpha))
+                    _fade_sticker_surf.blit(_alpha_mod_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                     screen.blit(_fade_sticker_surf, (_cx - _STICKER_SIZE // 2, _cy - _STICKER_SIZE // 2 + bob))
-                    _fade_sticker_surf.set_alpha(255)
                 else:
                     screen.blit(_stk, (_cx - _STICKER_SIZE // 2, _cy - _STICKER_SIZE // 2 + bob))
             else:
@@ -1120,9 +1165,9 @@ while running:
             label_text = prox_font.render(label_str, True, WHITE)
             lw, lh = label_text.get_width(), label_text.get_height()
             pad_x, pad_y = 10, 5
-            lbl_x = int(closest_c["x"]) - lw // 2 - pad_x
+            lbl_x = int(closest_c["x"]) + _shake_ox - lw // 2 - pad_x
             lbl_x = max(4, min(WIDTH - lw - pad_x * 2 - 4, lbl_x))
-            lbl_y = max(4, int(closest_c["y"]) + closest_c.get("_bob", 0) - 50 - lh - pad_y * 2)
+            lbl_y = max(4, int(closest_c["y"]) + _shake_oy + closest_c.get("_bob", 0) - 50 - lh - pad_y * 2)
             _pw, _ph = lw + pad_x * 2, lh + pad_y * 2
             _prox_pill_surf.fill((0, 0, 0, 0))
             pygame.draw.rect(_prox_pill_surf, (0, 0, 0, 210), (0, 0, _pw, _ph))
@@ -1158,11 +1203,13 @@ while running:
             ft["_surf"].set_alpha(int(ft["timer"] * 255))
             screen.blit(ft["_surf"], (int(ft["x"]) - ft["_w"] // 2, draw_y))
 
-        # Score pill (top-left)
+        # Score pill (top-left) — cached render
         score_pill_rect = pygame.Rect(15, 12, 210, 44)
         pygame.draw.rect(screen, PANEL_BG, score_pill_rect, border_radius=22)
         pygame.draw.rect(screen, ACCENT,   score_pill_rect, width=2, border_radius=22)
-        screen.blit(font.render(f"Score: {score}", True, SCORE_GOLD), (score_pill_rect.x + 16, score_pill_rect.y + 6))
+        if not hasattr(reset_game, '_sc_cache') or reset_game._sc_cache[0] != score:
+            reset_game._sc_cache = (score, font.render(f"Score: {score}", True, SCORE_GOLD))
+        screen.blit(reset_game._sc_cache[1], (score_pill_rect.x + 16, score_pill_rect.y + 6))
 
         # #3: Streak multiplier pill (below score)
         if streak_multiplier > 1.0:
@@ -1180,8 +1227,9 @@ while running:
         timer_pill_rect = pygame.Rect(WIDTH - 195, 12, 180, 44)
         pygame.draw.rect(screen, (80, 20, 20) if is_urgent else PANEL_BG,  timer_pill_rect, border_radius=22)
         pygame.draw.rect(screen, URGENT_RED  if is_urgent else ACCENT,     timer_pill_rect, width=2, border_radius=22)
-        screen.blit(font.render(f"Time: {time_left}s", True, URGENT_RED if is_urgent else WHITE),
-                    (timer_pill_rect.x + 14, timer_pill_rect.y + 6))
+        if not hasattr(reset_game, '_tm_cache') or reset_game._tm_cache[0] != (time_left, is_urgent):
+            reset_game._tm_cache = ((time_left, is_urgent), font.render(f"Time: {time_left}s", True, URGENT_RED if is_urgent else WHITE))
+        screen.blit(reset_game._tm_cache[1], (timer_pill_rect.x + 14, timer_pill_rect.y + 6))
 
     pygame.display.flip()
 

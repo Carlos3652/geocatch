@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GeoCatch — Technical Code Review</title>
+  <style>
+    :root {
+      --bg:        #1a1a2e;
+      --panel:     #16213e;
+      --card:      #0f3460;
+      --accent:    #ff6b35;
+      --gold:      #ffd700;
+      --red:       #ff3b30;
+      --orange:    #ff9500;
+      --yellow:    #ffcc00;
+      --green:     #34c759;
+      --blue:      #0a84ff;
+      --muted:     #8e8e93;
+      --text:      #e5e5ea;
+      --subtext:   #aeaeb2;
+      --border:    rgba(255,255,255,0.08);
+      --code-bg:   #0d1117;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      font-size: 15px;
+      line-height: 1.7;
+      padding: 0;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, #0f3460 0%, #1a1a2e 60%);
+      border-bottom: 1px solid var(--border);
+      padding: 40px 60px 36px;
+    }
+    header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #fff;
+    }
+    header h1 span { color: var(--accent); }
+    header .meta {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    header .meta b { color: var(--subtext); }
+
+    /* ── Dashboard ───────────────────────────────────────────────────────── */
+    .dashboard {
+      display: flex;
+      gap: 16px;
+      padding: 32px 60px 0;
+      flex-wrap: wrap;
+    }
+    .dash-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 28px;
+      min-width: 140px;
+      text-align: center;
+    }
+    .dash-card .count {
+      font-size: 42px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .dash-card .label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-top: 6px;
+      color: var(--muted);
+    }
+    .dash-card.crit  .count { color: var(--red); }
+    .dash-card.high  .count { color: var(--orange); }
+    .dash-card.med   .count { color: var(--yellow); }
+    .dash-card.low   .count { color: var(--green); }
+    .dash-card.total .count { color: var(--blue); }
+
+    /* ── Severity Legend ─────────────────────────────────────────────────── */
+    .legend {
+      display: flex;
+      gap: 24px;
+      padding: 20px 60px 0;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--subtext);
+    }
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Section headers ─────────────────────────────────────────────────── */
+    .section-header {
+      padding: 40px 60px 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 0;
+    }
+    .section-header h2 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .section-header p {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── Finding cards ────────────────────────────────────────────────────── */
+    .findings {
+      padding: 0 60px;
+    }
+    .finding {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin: 20px 0;
+      overflow: hidden;
+    }
+    .finding-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .tag.CRIT { background: rgba(255,59,48,0.2);  color: var(--red);    border: 1px solid rgba(255,59,48,0.4); }
+    .tag.HIGH { background: rgba(255,149,0,0.2);  color: var(--orange); border: 1px solid rgba(255,149,0,0.4); }
+    .tag.MED  { background: rgba(255,204,0,0.2);  color: var(--yellow); border: 1px solid rgba(255,204,0,0.4); }
+    .tag.LOW  { background: rgba(52,199,89,0.2);  color: var(--green);  border: 1px solid rgba(52,199,89,0.4); }
+    .finding-title {
+      flex: 1;
+    }
+    .finding-title h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .finding-title .location {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: "SF Mono", Consolas, monospace;
+      margin-top: 2px;
+    }
+    .finding-body {
+      padding: 16px 24px 20px;
+    }
+    .finding-body p {
+      color: var(--subtext);
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    .finding-body p:last-child { margin-bottom: 0; }
+
+    /* ── Code blocks ──────────────────────────────────────────────────────── */
+    .code-block {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 14px 0;
+      overflow: hidden;
+    }
+    .code-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      padding: 6px 14px;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+    }
+    .code-label.bug   { color: var(--red);    background: rgba(255,59,48,0.1); }
+    .code-label.fix   { color: var(--green);  background: rgba(52,199,89,0.1); }
+    .code-label.note  { color: var(--blue);   background: rgba(10,132,255,0.1); }
+    pre {
+      font-family: "SF Mono", Consolas, "Cascadia Code", monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      padding: 14px 16px;
+      overflow-x: auto;
+      color: #c9d1d9;
+    }
+    pre .hl  { background: rgba(255,59,48,0.18);  display: inline-block; width: 100%; }
+    pre .fix { background: rgba(52,199,89,0.15);  display: inline-block; width: 100%; }
+    pre .cmt { color: #8b949e; }
+
+    /* ── Feature interaction matrix ───────────────────────────────────────── */
+    .matrix-wrap {
+      padding: 0 60px 20px;
+      overflow-x: auto;
+    }
+    table.matrix {
+      border-collapse: collapse;
+      font-size: 12px;
+      white-space: nowrap;
+      width: 100%;
+    }
+    table.matrix th, table.matrix td {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    table.matrix th {
+      background: var(--card);
+      color: var(--subtext);
+      font-weight: 600;
+    }
+    table.matrix td.ok   { color: var(--green);  }
+    table.matrix td.warn { color: var(--orange); }
+    table.matrix td.bad  { color: var(--red);    font-weight: 700; }
+    table.matrix td.na   { color: var(--border); }
+    table.matrix td.label { text-align: left; color: var(--text); background: rgba(255,255,255,0.03); }
+
+    /* ── Summary section ──────────────────────────────────────────────────── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+      padding: 0 60px 20px;
+    }
+    .summary-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+    .summary-card h4 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    .summary-card ul {
+      list-style: none;
+      font-size: 13px;
+      color: var(--subtext);
+    }
+    .summary-card ul li {
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .summary-card ul li:last-child { border-bottom: none; }
+    .summary-card ul li::before { content: "— "; color: var(--muted); }
+
+    footer {
+      text-align: center;
+      padding: 40px 60px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ HEADER ══════════════════════════════════════════════════════════════ -->
+<header>
+  <h1><span>GeoCatch</span> — Pygame Desktop — Technical Code Review</h1>
+  <div class="meta">
+    <b>File:</b> geocatch_pygame.py &nbsp;|&nbsp;
+    <b>Review scope:</b> 15-feature drop (sound, streak, escalation, behaviors, animations, pause, stats, spawn) &nbsp;|&nbsp;
+    <b>Reviewer:</b> SeniorTechLead &nbsp;|&nbsp;
+    <b>Date:</b> 2026-03-08
+  </div>
+</header>
+
+<!-- ══ DASHBOARD ═══════════════════════════════════════════════════════════ -->
+<div class="dashboard">
+  <div class="dash-card crit">  <div class="count">3</div><div class="label">Critical</div></div>
+  <div class="dash-card high">  <div class="count">5</div><div class="label">High</div></div>
+  <div class="dash-card med">   <div class="count">7</div><div class="label">Medium</div></div>
+  <div class="dash-card low">   <div class="count">4</div><div class="label">Low</div></div>
+  <div class="dash-card total"> <div class="count">19</div><div class="label">Total Findings</div></div>
+</div>
+
+<div class="legend" style="padding-top:28px;">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>CRITICAL — Crash or data loss on reachable code path</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>HIGH — Gameplay-breaking, invisible rendering, or significant perf cost</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>MEDIUM — UX defect, logic flaw, or edge-case bug</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>LOW — Polish, style, or minor inefficiency</div>
+</div>
+
+<!-- ══ FEATURE INTERACTION MATRIX ══════════════════════════════════════════ -->
+<div class="section-header" style="margin-top:36px;">
+  <h2>Feature Interaction Matrix</h2>
+  <p>Cross-feature conflict check across all 15 new systems. OK = no conflict, WARN = partial issue, BUG = verified defect.</p>
+</div>
+<div class="matrix-wrap" style="padding-top:20px;">
+  <table class="matrix">
+    <thead>
+      <tr>
+        <th style="text-align:left">Feature</th>
+        <th>#1 Sound</th>
+        <th>#3 Streak</th>
+        <th>#4 Escalation</th>
+        <th>#5 Behaviors</th>
+        <th>#6 Catch Pop</th>
+        <th>#8 Shake</th>
+        <th>#9 Fade-in</th>
+        <th>#10 Pause</th>
+        <th>#11 Bests</th>
+        <th>#13 Delay</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="label">#1 Sound FX</td>
+        <td class="na">—</td><td class="ok">OK</td><td class="ok">OK</td>
+        <td class="ok">OK</td><td class="ok">OK</td><td class="ok">OK</td>
+        <td class="ok">OK</td><td class="warn">WARN*</td><td class="ok">OK</td><td class="ok">OK</td>
+      </tr>
+      <tr>
+        <td class="label">#2 Bomb positions</td>
+        <td class="ok">OK</td><td class="ok">OK</td><td class="warn">WARN†</td>
+        <td class="ok">OK</td><td class="ok">OK</td><td class="ok">OK</td>
+        <td class="ok">OK</td><td class="ok">OK</td><td class="ok">OK</td><td class="ok">OK</td>
+      </tr>
+      <tr>
+        <td class="label">#3 Streak</td>
+        <td class="ok">OK</td><td class="na">—</td><td class="ok">OK</td>
+        <td class="bad">BUG‡</td><td class="ok">OK</td><td class="ok">OK</td>
+        <td class="bad">BUG§</td><td class="ok">OK</td><td class="ok">OK</td><td class="ok">OK</td>
+      </tr>
+      <tr>
+        <td class="label">#5 Behaviors</td>
+        <td class="ok">OK</td><td class="ok">OK</td><td class="ok">OK</td>
+        <td class="na">—</td><td class="ok">OK</td><td class="ok">OK</td>
+        <td class="bad">BUG¶</td><td class="ok">OK</td><td class="ok">OK</td><td class="ok">OK</td>
+      </tr>
+      <tr>
+        <td class="label">#9 Fade-in</td>
+        <td class="ok">OK</td><td class="ok">OK</td><td class="ok">OK</td>
+        <td class="bad">BUG¶</td><td class="ok">OK</td><td class="ok">OK</td>
+        <td class="na">—</td><td class="ok">OK</td><td class="ok">OK</td><td class="ok">OK</td>
+      </tr>
+      <tr>
+        <td class="label">#10 Pause</td>
+        <td class="warn">WARN*</td><td class="ok">OK</td><td class="ok">OK</td>
+        <td class="ok">OK</td><td class="ok">OK</td><td class="ok">OK</td>
+        <td class="ok">OK</td><td class="na">—</td><td class="ok">OK</td><td class="ok">OK</td>
+      </tr>
+      <tr>
+        <td class="label">#13 Spawn delay</td>
+        <td class="ok">OK</td><td class="ok">OK</td><td class="ok">OK</td>
+        <td class="ok">OK</td><td class="ok">OK</td><td class="ok">OK</td>
+        <td class="ok">OK</td><td class="ok">OK</td><td class="ok">OK</td><td class="na">—</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size:12px;color:var(--muted);margin-top:10px;">
+    * Gameover sound plays even if paused timer hasn't actually elapsed (sound fires in playing update before pause can intercept).
+    &nbsp;† Escalation adds a bomb mid-wave without re-checking lake/rock overlap for the extra bomb placement.
+    &nbsp;‡ Fader creature (Shadow Phantom) has no catch-alpha guard — invisible faders can be caught.
+    &nbsp;§ Fade-in guard blocks catching but streak multiplier update code is unreachable — correct, no streak awarded.
+    &nbsp;¶ Blinker/Drifter post-move lake/rock collision not re-checked.
+  </p>
+</div>
+
+<!-- ══ CRITICAL FINDINGS ═══════════════════════════════════════════════════ -->
+<div class="section-header">
+  <h2 style="color:var(--red)">Critical Findings</h2>
+  <p>Crashes or data loss on reachable code paths.</p>
+</div>
+<div class="findings">
+
+  <!-- CRIT-01 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag CRIT">CRIT</span>
+      <div class="finding-title">
+        <h3>CRIT-01 — <code>save_high_score()</code> crashes on OSError, losing player data</h3>
+        <div class="location">geocatch_pygame.py : 163–170 | Feature #11 / score persistence</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        <code>save_high_score()</code> opens <code>highscores.txt</code> for write with no try/except guard.
+        Any <code>OSError</code> (read-only filesystem, disk full, permission denied, antivirus lock on Windows)
+        raises an unhandled exception that terminates the game loop while the player is on the game-over screen.
+        The score is already appended to <code>high_scores</code> in memory before the crash, so the in-memory
+        state is half-updated. On the next launch the file is unchanged, silently discarding the new score.
+        This path is reachable on any machine where the working directory is not writable — common when the
+        game is run from <code>Program Files</code> or a network share.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — lines 163–170</div>
+        <pre>def save_high_score(name, sc):
+    global high_scores
+    high_scores.append((name, sc))
+    high_scores.sort(key=lambda x: x[1], reverse=True)
+    high_scores = high_scores[:5]
+<span class="hl">    with open("highscores.txt", "w") as f:   # OSError crashes game here</span>
+        for n, s in high_scores:
+            f.write(f"{n} {s}\n")</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix</div>
+        <pre>def save_high_score(name, sc):
+    global high_scores
+    high_scores.append((name, sc))
+    high_scores.sort(key=lambda x: x[1], reverse=True)
+    high_scores = high_scores[:5]
+<span class="fix">    try:
+        with open("highscores.txt", "w") as f:
+            for n, s in high_scores:
+                f.write(f"{n} {s}\n")
+    except OSError:
+        pass  # Scores remain in memory for this session; silently skipped on next launch</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- CRIT-02 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag CRIT">CRIT</span>
+      <div class="finding-title">
+        <h3>CRIT-02 — <code>_go_cache["go"]</code> accessed unconditionally when <code>_go_cache</code> can be <code>None</code></h3>
+        <div class="location">geocatch_pygame.py : 967, 972 | Feature #6 / game-over draw</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        <code>_go_cache</code> is initialised to <code>None</code> at module level (line 99) and is only
+        populated inside the <code>if time_left &lt;= 0:</code> branch (line 812). The draw block at
+        line 967 accesses <code>_go_cache["go"]</code> unconditionally — with no None guard — then again
+        at line 972. If <code>game_state</code> is ever set to <code>"game_over"</code> by any code path that
+        bypasses the timer expiry (e.g., a future cheat code, test harness, or a second SPACE press
+        that races the state transition), this produces a <code>TypeError: 'NoneType' object is not
+        subscriptable</code>, hard-crashing the draw loop. The <code>is_new_high_score</code> block at
+        line 963 correctly guards with <code>and _go_cache</code>, but the unconditional blits on lines
+        967 and 972 do not.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — lines 963–972</div>
+        <pre>        if is_new_high_score and _go_cache:          <span class="cmt"># guarded</span>
+            screen.blit(_go_cache["glow"], ...)
+            screen.blit(_go_cache["gold"], ...)
+
+<span class="hl">        screen.blit(_go_cache["go"], ...)             # unguarded — crashes if _go_cache is None</span>
+        _score_text = score_big_font.render(...)
+        screen.blit(_score_text, ...)
+<span class="hl">        screen.blit(_go_cache["count"], ...)          # unguarded</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — wrap both unconditional blits</div>
+        <pre>        if is_new_high_score and _go_cache:
+            screen.blit(_go_cache["glow"], ...)
+            screen.blit(_go_cache["gold"], ...)
+
+<span class="fix">        if _go_cache:
+            screen.blit(_go_cache["go"], (cx - _go_cache["go"].get_width() // 2, go_y))
+</span>
+        _score_text = score_big_font.render(str(_go_anim_score), True, SCORE_GOLD)
+        screen.blit(_score_text, (cx - _score_text.get_width() // 2, go_y + 45))
+
+<span class="fix">        if _go_cache:
+            screen.blit(_go_cache["count"], (cx - _go_cache["count"].get_width() // 2, go_y + 125))</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- CRIT-03 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag CRIT">CRIT</span>
+      <div class="finding-title">
+        <h3>CRIT-03 — Per-frame SRCALPHA surface allocation in game-over bubble loop (840 allocs/sec)</h3>
+        <div class="location">geocatch_pygame.py : 950 | Feature #6 / game-over celebraton draw</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        The game-over draw block allocates a brand-new <code>pygame.Surface((50, 50), pygame.SRCALPHA)</code>
+        inside the bubble loop on every frame. With 14 bubbles running at 60 fps that is
+        <strong>840 fresh allocations per second</strong>, each backed by a 50×50×4-byte pixel buffer
+        (~10 KB each = ~8.4 MB/sec handed to the garbage collector). On low-end machines and integrated
+        GPUs this manifests as visible hitching on the game-over screen. This is the same class of bug
+        that was previously identified and fixed for the bomb-flash surface; the bubble loop was missed.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — lines 948–954</div>
+        <pre>        _bubble_surf_size = 50
+        for b in _go_bubbles:
+<span class="hl">            _bs = pygame.Surface((_bubble_surf_size, _bubble_surf_size), pygame.SRCALPHA)  # 840 allocs/sec</span>
+            pygame.draw.ellipse(_bs, (*b["color"], 90), ...)
+            screen.blit(_bs, ...)</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — pre-allocate one surface per unique bubble shape; regenerate lazily</div>
+        <pre><span class="cmt"># At module level (alongside other pre-allocated surfaces, ~line 276)</span>
+<span class="fix">_bubble_surf = pygame.Surface((50, 50), pygame.SRCALPHA)</span>
+
+<span class="cmt"># In game-over draw loop</span>
+<span class="fix">        _bubble_surf_size = 50
+        for b in _go_bubbles:
+            _bubble_surf.fill((0, 0, 0, 0))
+            pygame.draw.ellipse(
+                _bubble_surf, (*b["color"], 90),
+                (_bubble_surf_size // 2 - b["rx"], _bubble_surf_size // 2 - b["ry"],
+                 b["rx"] * 2, b["ry"] * 2)
+            )
+            screen.blit(_bubble_surf, (int(b["x"]) - _bubble_surf_size // 2, int(b["y"]) - _bubble_surf_size // 2))</span>
+
+<span class="cmt"># Note: since bubbles differ only in ellipse dimensions and color, one reused surface
+# is correct — the fill+draw pattern already used elsewhere in this file.</span></pre>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /findings -->
+
+<!-- ══ HIGH FINDINGS ════════════════════════════════════════════════════════ -->
+<div class="section-header">
+  <h2 style="color:var(--orange)">High Findings</h2>
+  <p>Gameplay-breaking bugs or significant performance hits that affect every session.</p>
+</div>
+<div class="findings">
+
+  <!-- HIGH-01 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag HIGH">HIGH</span>
+      <div class="finding-title">
+        <h3>HIGH-01 — <code>set_alpha()</code> is silently ignored on SRCALPHA surfaces — fade-in never renders</h3>
+        <div class="location">geocatch_pygame.py : 1089–1094 | Features #9 Fade-in, #5 Fader behavior</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        The fade-in and fader-behavior alpha effects are both routed through
+        <code>_fade_sticker_surf.set_alpha(_c_alpha)</code>. However, <code>_fade_sticker_surf</code>
+        was created with <code>pygame.SRCALPHA</code> (line 280). Per-pixel alpha surfaces and
+        surface-wide alpha are <strong>mutually exclusive</strong> in Pygame: the documentation
+        explicitly states "the per-pixel alpha flag and the surface alpha are mutually exclusive"
+        and <code>set_alpha()</code> has no effect on SRCALPHA surfaces. The call at line 1092 silently
+        does nothing. All creatures appear at full opacity during their entire fade-in window, and the
+        Shadow Phantom fader effect does not dim at any distance. The reset call at line 1094
+        (<code>set_alpha(255)</code>) is likewise a no-op.
+      </p>
+      <p>
+        The correct approach is to blit the sticker onto a non-SRCALPHA surface set to the desired
+        surface-wide alpha, or to pre-multiply the alpha into each pixel manually. The simplest fix
+        is to use a regular (non-SRCALPHA) intermediate surface and call <code>set_alpha()</code> on it,
+        since the sticker source already carries per-pixel alpha that will be composited during the blit.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — lines 280, 1090–1094</div>
+        <pre><span class="cmt"># Line 280 — created with SRCALPHA:</span>
+<span class="hl">_fade_sticker_surf = pygame.Surface((_STICKER_SIZE, _STICKER_SIZE), pygame.SRCALPHA)</span>
+
+<span class="cmt"># Lines 1090–1094 — set_alpha has no effect on SRCALPHA surface:</span>
+                    _fade_sticker_surf.fill((0, 0, 0, 0))
+                    _fade_sticker_surf.blit(_stk, (0, 0))
+<span class="hl">                    _fade_sticker_surf.set_alpha(_c_alpha)   # silently ignored</span>
+                    screen.blit(_fade_sticker_surf, ...)
+<span class="hl">                    _fade_sticker_surf.set_alpha(255)        # also a no-op</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — use a non-SRCALPHA intermediate surface for surface-wide alpha</div>
+        <pre><span class="cmt"># At module level, replace line 280:</span>
+<span class="fix">_fade_sticker_surf = pygame.Surface((_STICKER_SIZE, _STICKER_SIZE))  # no SRCALPHA
+_fade_sticker_surf.set_colorkey((0, 0, 0))  # treat black as transparent for the shell</span>
+
+<span class="cmt"># In the draw loop (lines 1089–1094):</span>
+<span class="fix">                if _c_alpha < 255:
+                    _fade_sticker_surf.fill((0, 0, 0))          # black = colorkey = transparent
+                    _fade_sticker_surf.blit(_stk, (0, 0))
+                    _fade_sticker_surf.set_alpha(_c_alpha)       # NOW works on non-SRCALPHA surface
+                    screen.blit(_fade_sticker_surf, (_cx - _STICKER_SIZE // 2, _cy - _STICKER_SIZE // 2 + bob))
+                    # No reset needed — set_alpha is stateful; will be set again next frame</span></pre>
+      </div>
+      <p style="color:var(--muted);font-size:13px;">
+        Note: the colorkey approach has a minor visual artifact if the sticker contains pure-black pixels.
+        A cleaner but heavier alternative is to use <code>pygame.transform.threshold</code> or render
+        at module level into a non-SRCALPHA surface once per creature type. For 5 creature types at
+        72×72 this is negligible cost.
+      </p>
+    </div>
+  </div>
+
+  <!-- HIGH-02 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag HIGH">HIGH</span>
+      <div class="finding-title">
+        <h3>HIGH-02 — <code>bomb_cooldown</code> is frame-count-based, not time-based — speed varies with frame rate</h3>
+        <div class="location">geocatch_pygame.py : 702–703, 718 | Feature #2 / bomb collision</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        <code>bomb_cooldown</code> decrements by 1 each frame and is initialised to 90 on hit (line 718).
+        At a locked 60 fps this equals 1.5 seconds of invincibility — a deliberately tuned value.
+        However, on a machine that drops to 30 fps (low-end hardware, Windows Defender scan peak,
+        alt-tab return), the same 90-frame counter takes 3.0 seconds. At 120 fps it takes 0.75 seconds.
+        Since the game uses <code>dt = clock.tick(60) / 1000</code>, the <code>dt</code> value is already
+        available; the cooldown should simply accumulate <code>dt</code> rather than count frames.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — lines 702–703, 718</div>
+        <pre>        if bomb_cooldown > 0:
+<span class="hl">            bomb_cooldown -= 1          # frame-rate dependent</span>
+        ...
+<span class="hl">                bombs[i] = _spawn_bomb_random()
+                bomb_cooldown = 90      # 90 frames, not 90 seconds</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — convert to seconds using dt</div>
+        <pre><span class="fix">        if bomb_cooldown > 0:
+            bomb_cooldown -= dt         # now in seconds
+        ...
+                bomb_cooldown = 1.5     # 1.5 seconds, frame-rate independent</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- HIGH-03 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag HIGH">HIGH</span>
+      <div class="finding-title">
+        <h3>HIGH-03 — Fader (Shadow Phantom) is catchable while invisible — feature #9 guard incomplete</h3>
+        <div class="location">geocatch_pygame.py : 632–634, 1082–1085 | Features #5, #9</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        Feature #9 correctly blocks catching during spawn fade-in by checking
+        <code>c.get("spawn_alpha", 1.0) &lt; 0.5</code>. However, the fader behavior (Shadow Phantom)
+        computes a separate <code>fader_alpha</code> based on distance (line 1084): at 224+ pixels
+        from the player, <code>fader_alpha</code> drops to 50 (nearly invisible, alpha = 50/255 ≈ 20%).
+        This visual alpha is only applied in the draw path; the catch-detection check at line 633 only
+        reads <code>spawn_alpha</code>, not the combined <code>_c_alpha</code>. A player can therefore
+        catch an invisible Shadow Phantom by pressing SPACE while walking near its map coordinate —
+        rewarding spatial memory over actual gameplay. This directly contradicts the design intent of
+        the fader archetype.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — catch guard only checks spawn_alpha, not fader alpha</div>
+        <pre>                # #9: can't catch creatures still fading in (&lt;50% alpha)
+<span class="hl">                if c.get("spawn_alpha", 1.0) &lt; 0.5:   # only spawn_alpha, fader_alpha ignored
+                    continue</span>
+                if math.hypot(player_x - c["x"], player_y - c["y"]) &lt; 55:</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — compute effective alpha in catch check, same as draw path</div>
+        <pre><span class="fix">                # Compute effective alpha (spawn fade-in + fader behavior)
+                _effective_alpha = c.get("spawn_alpha", 1.0)
+                if c.get("behavior") == "fader":
+                    _dist = math.hypot(c["x"] - player_x, c["y"] - player_y)
+                    _fader_a = max(50, min(255, 255 - (_dist - 100) * 2.05)) / 255.0
+                    _effective_alpha = min(_effective_alpha, _fader_a)
+                if _effective_alpha < 0.5:
+                    continue</span>
+                if math.hypot(player_x - c["x"], player_y - c["y"]) &lt; 55:</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- HIGH-04 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag HIGH">HIGH</span>
+      <div class="finding-title">
+        <h3>HIGH-04 — Blinker and Drifter behaviors can teleport creatures into lake or rocks</h3>
+        <div class="location">geocatch_pygame.py : 736–748 | Feature #5 Creature behaviors</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        The blinker's random offset (lines 736–737) and the drifter's continuous velocity (lines 741–742)
+        both update position without re-checking <code>in_lake()</code> or rock proximity.
+        Blinkers can teleport directly into a pond body. Drifters will not enter the lake (their bounce
+        bounds are 80–800 x, 80–HEIGHT-80 y, which largely avoids the ponds by accident) but their
+        wall-reflection logic at lines 743–748 does not guard against lake entry mid-path.
+        Additionally, a Pacer whose <code>orbit_cx/orbit_cy</code> is spawned near the lake edge will
+        sweep its orbit arc through the water with no visual indication.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — blinker teleport at lines 736–739</div>
+        <pre>            elif beh == "blinker":
+                c["blink_timer"] -= dt
+                if c["blink_timer"] &lt;= 0:
+                    c["blink_timer"] = random.uniform(2.0, 4.0)
+<span class="hl">                    c["x"] += random.randint(-40, 40)    # no lake / rock check
+                    c["y"] += random.randint(-40, 40)
+                    c["x"] = max(80, min(800, c["x"]))
+                    c["y"] = max(80, min(HEIGHT - 80, c["y"]))</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — reject lake/rock positions for blinker; reflect drifter away from lake</div>
+        <pre><span class="fix">            elif beh == "blinker":
+                c["blink_timer"] -= dt
+                if c["blink_timer"] &lt;= 0:
+                    c["blink_timer"] = random.uniform(2.0, 4.0)
+                    for _ in range(8):  # up to 8 attempts
+                        nx = max(80, min(800, c["x"] + random.randint(-40, 40)))
+                        ny = max(80, min(HEIGHT - 80, c["y"] + random.randint(-40, 40)))
+                        if not in_lake(nx, ny) and not any(
+                            math.hypot(nx - rx, ny - ry) &lt; 55 for rx, ry in rocks
+                        ):
+                            c["x"], c["y"] = nx, ny
+                            break
+                    # If all attempts fail, creature stays put</span>
+
+<span class="fix">            elif beh == "drifter":
+                c["x"] += c.get("vx", 0) * dt
+                c["y"] += c.get("vy", 0) * dt
+                if c["x"] &lt; 80 or c["x"] > 800:
+                    c["vx"] = -c.get("vx", 0)
+                    c["x"] = max(80, min(800, c["x"]))
+                if c["y"] &lt; 80 or c["y"] > HEIGHT - 80:
+                    c["vy"] = -c.get("vy", 0)
+                    c["y"] = max(80, min(HEIGHT - 80, c["y"]))
+                # Bounce away from lake
+                if in_lake(c["x"], c["y"]):
+                    c["vx"] = -c.get("vx", 0)
+                    c["vy"] = -c.get("vy", 0)</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- HIGH-05 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag HIGH">HIGH</span>
+      <div class="finding-title">
+        <h3>HIGH-05 — Scores popup allocates a new SRCALPHA surface every draw frame while open</h3>
+        <div class="location">geocatch_pygame.py : 924 | Feature #11 / character-select popup</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        When <code>_cs_popup == "scores"</code>, a fresh <code>pygame.Surface((_CS_POPUP_W, _CS_POPUP_H),
+        pygame.SRCALPHA)</code> is allocated at line 924 on every draw frame. This is a 380×220 ×4 bytes
+        = ~334 KB allocation per frame. Over the time a player reads the scoreboard (typically 3–5 seconds)
+        this generates 180–300 surface objects, totalling ~60–100 MB handed to the GC. This was previously
+        flagged in the card-spotlight-review and fixed for other popups; the scores popup was missed during
+        the 15-feature drop.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — line 924</div>
+        <pre>        elif _cs_popup == "scores":
+            px = cx - _CS_POPUP_W // 2
+            py = HEIGHT // 2 - _CS_POPUP_H // 2
+            _cs_popup_rect.update(px, py, _CS_POPUP_W, _CS_POPUP_H)
+<span class="hl">            _sp = pygame.Surface((_CS_POPUP_W, _CS_POPUP_H), pygame.SRCALPHA)  # 334 KB alloc/frame</span>
+            pygame.draw.rect(_sp, ...)</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — pre-render at module level, rebuild only when high_scores changes</div>
+        <pre><span class="cmt"># At module level (after _cs_popup_how is built, ~line 552):</span>
+<span class="fix">def _build_scores_popup():
+    """Pre-render the scores popup surface. Call once at startup and after save_high_score()."""
+    surf = pygame.Surface((_CS_POPUP_W, _CS_POPUP_H), pygame.SRCALPHA)
+    surf.fill((26, 26, 46, 240))
+    pygame.draw.rect(surf, (*ACCENT[:3], 160), (0, 0, _CS_POPUP_W, _CS_POPUP_H), width=2, border_radius=10)
+    _st = small_font.render("BEST SCORES", True, ACCENT)
+    surf.blit(_st, (_CS_POPUP_W // 2 - _st.get_width() // 2, 14))
+    if high_scores:
+        for _si, (_sn, _ss) in enumerate(high_scores[:5]):
+            _sc = SCORE_GOLD if _si == 0 else (200, 200, 200)
+            _sl = small_font.render(f"{_si+1}.  {_sn}  --  {_ss}", True, _sc)
+            surf.blit(_sl, (40, 50 + _si * 30))
+    else:
+        _ne = tiny_font.render("No scores yet -- be the first!", True, (150, 150, 150))
+        surf.blit(_ne, (_CS_POPUP_W // 2 - _ne.get_width() // 2, 80))
+    return surf
+
+_cs_popup_scores = _build_scores_popup()
+</span>
+<span class="cmt"># In save_high_score(), after updating high_scores:</span>
+<span class="fix">    _cs_popup_scores = _build_scores_popup()   # refresh cached popup</span>
+
+<span class="cmt"># In the draw block, replace the per-frame allocation:</span>
+<span class="fix">            screen.blit(_cs_popup_scores, (px, py))</span></pre>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /findings -->
+
+<!-- ══ MEDIUM FINDINGS ══════════════════════════════════════════════════════ -->
+<div class="section-header">
+  <h2 style="color:var(--yellow)">Medium Findings</h2>
+  <p>UX defects, logic errors, and edge-case bugs that affect a subset of sessions.</p>
+</div>
+<div class="findings">
+
+  <!-- MED-01 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag MED">MED</span>
+      <div class="finding-title">
+        <h3>MED-01 — Score counter animation skips non-multiples of 10 — broken for streaks</h3>
+        <div class="location">geocatch_pygame.py : 825 | Features #3, #6 / game-over animation</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        The score roll-up animation advances by computing <code>int(_go_anim_timer / 0.05) * 10</code>.
+        This means the counter always jumps in steps of exactly 10 and never displays values between
+        multiples of 10. Once <code>_go_anim_score &gt;= score</code> it snaps to the real score, so
+        the final display is correct — but any score not divisible by 10 causes a visible jump on the
+        last frame. With the streak multiplier (1.5× and 2×), a large fraction of real scores will
+        end in 5 (e.g., 40×1.5=60 is fine, but 45×1.5=67 ends in 7). For a score of 67, the counter
+        displays …60 → 67, which looks like a glitch compared to the smooth animation leading up.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — line 825</div>
+        <pre>            _go_anim_score = min(score, int(_go_anim_timer / 0.05) * 10)
+<span class="hl">            # Steps: 0, 10, 20, 30 … snaps to score. Final jump visible for odd scores.</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — use proportional animation instead of fixed step</div>
+        <pre><span class="cmt">            # Rolls from 0 to score linearly over 1.2 seconds; works for any score value</span>
+<span class="fix">            _ANIM_DURATION = 1.2  # seconds
+            _go_anim_score = min(score, int(score * min(1.0, _go_anim_timer / _ANIM_DURATION)))</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- MED-02 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag MED">MED</span>
+      <div class="finding-title">
+        <h3>MED-02 — <code>score_big_font.render()</code> called every frame during game-over animation</h3>
+        <div class="location">geocatch_pygame.py : 969 | Feature #6 / game-over draw</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        The animated score counter re-renders a 72pt bold font string on every draw frame. While the
+        counter is changing (for up to ~1.2 seconds) this is unavoidable. But once <code>_go_anim_done</code>
+        is <code>True</code> the score is frozen, yet <code>font.render()</code> is still called 60 times
+        per second, allocating a new surface each time for the same static string. Cache the surface once
+        the animation finishes.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — line 969</div>
+        <pre><span class="hl">        _score_text = score_big_font.render(str(_go_anim_score), True, SCORE_GOLD)  # every frame</span>
+        screen.blit(_score_text, (cx - _score_text.get_width() // 2, go_y + 45))</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — cache score surface in _go_cache when animation completes</div>
+        <pre><span class="cmt"># In the update block where _go_anim_done is set (around line 827):</span>
+<span class="fix">            if _go_anim_score >= score:
+                _go_anim_score = score
+                _go_anim_done = True
+                if _go_cache:
+                    _go_cache["score_surf"] = score_big_font.render(str(score), True, SCORE_GOLD)</span>
+
+<span class="cmt"># In the draw block:</span>
+<span class="fix">        _score_surf = (
+            _go_cache.get("score_surf") if (_go_anim_done and _go_cache)
+            else score_big_font.render(str(_go_anim_score), True, SCORE_GOLD)
+        )
+        screen.blit(_score_surf, (cx - _score_surf.get_width() // 2, go_y + 45))</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- MED-03 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag MED">MED</span>
+      <div class="finding-title">
+        <h3>MED-03 — Four per-frame <code>font.render()</code> calls in the playing HUD</h3>
+        <div class="location">geocatch_pygame.py : 1120, 1165, 1170, 1183 | Playing draw</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        Every draw frame in the playing state allocates new surfaces for the Score pill (line 1165),
+        Timer pill (line 1183), Streak pill (line 1170), and the proximity label (line 1120). The first
+        three change at most once per second; the proximity label changes only when the nearest creature
+        changes. These are prime candidates for dirty-surface caching: render once, re-render only when
+        the underlying value changes. At 60 fps this is 240 unnecessary allocations per second in the
+        hottest path of the game.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — lines 1165, 1183, 1170, 1120 (representative excerpts)</div>
+        <pre><span class="hl">        screen.blit(font.render(f"Score: {score}", True, SCORE_GOLD), ...)         # every frame</span>
+<span class="hl">        screen.blit(font.render(f"Time: {time_left}s", True, ...), ...)            # every frame</span>
+<span class="hl">        _streak_text = small_font.render(f"x{streak_multiplier:.1f}", True, ...)   # every frame</span>
+<span class="hl">        label_text = prox_font.render(label_str, True, WHITE)                      # every frame</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — cache with invalidation on value change</div>
+        <pre><span class="cmt"># At module level:</span>
+<span class="fix">_hud_score_surf = None;  _hud_score_val = -1
+_hud_timer_surf = None;  _hud_timer_val = -1
+_hud_streak_surf = None; _hud_streak_val = -1.0
+_prox_label_surf = None; _prox_label_str = ""</span>
+
+<span class="cmt"># In playing draw, replace each render:</span>
+<span class="fix">        if score != _hud_score_val:
+            _hud_score_val = score
+            _hud_score_surf = font.render(f"Score: {score}", True, SCORE_GOLD)
+        screen.blit(_hud_score_surf, (score_pill_rect.x + 16, score_pill_rect.y + 6))</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- MED-04 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag MED">MED</span>
+      <div class="finding-title">
+        <h3>MED-04 — Escalation extra bomb spawns without respecting the 80px player-clearance rule</h3>
+        <div class="location">geocatch_pygame.py : 779 | Feature #4 Late-game escalation</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        When the escalation triggers at 15 seconds remaining, an extra bomb is appended via
+        <code>bombs.append(_spawn_bomb_random())</code>. The helper does attempt to maintain 80px clearance
+        from the player (line 408). However, if all 10 random attempts fail the fallback at line 410
+        returns a completely unconstrained position — no lake, rock, or player-clearance checks at all.
+        The fallback is a 10-attempt loop; on a crowded map (4 existing bombs, player at edge) the failure
+        probability is non-trivial. A player standing in a corner could receive an escalation bomb directly
+        on top of them with no warning and no cooldown — instant double-bomb penalty on the frame of
+        escalation.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — lines 401–410</div>
+        <pre>def _spawn_bomb_random():
+    for _ in range(10):
+        bx = random.randint(100, WIDTH - 100)
+        by = random.randint(100, HEIGHT - 100)
+        if (not in_lake(bx, by)
+                and not any(math.hypot(bx - rx, by - ry) &lt; 55 for rx, ry in rocks)
+                and math.hypot(bx - player_x, by - player_y) > 80):
+            return (bx, by)
+<span class="hl">    return (random.randint(100, WIDTH - 100), random.randint(100, HEIGHT - 100))  # unconstrained fallback</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — guarantee minimum player clearance in fallback</div>
+        <pre><span class="fix">    # Fallback: at least enforce player clearance even if lake/rock not satisfied
+    for _ in range(20):   # more attempts before giving up
+        bx = random.randint(100, WIDTH - 100)
+        by = random.randint(100, HEIGHT - 100)
+        if math.hypot(bx - player_x, by - player_y) > 120:
+            return (bx, by)
+    # Last resort: opposite quadrant from player
+    fx = (WIDTH - player_x) + random.randint(-80, 80)
+    fy = (HEIGHT - player_y) + random.randint(-80, 80)
+    return (max(100, min(WIDTH - 100, fx)), max(100, min(HEIGHT - 100, fy)))</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- MED-05 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag MED">MED</span>
+      <div class="finding-title">
+        <h3>MED-05 — Pause Q-quit does not stop the gameover sound that fires the same frame time expires</h3>
+        <div class="location">geocatch_pygame.py : 667–668, 786–789 | Feature #10 Pause / #1 Sound</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        The <code>time_left &lt;= 0</code> check runs in the <code>"playing"</code> update branch.
+        If a player is on the pause screen when the timer would naturally expire (pause was taken with
+        exactly 0 seconds showing), pressing Q transitions to <code>"character_select"</code> cleanly.
+        However, if the player unpauses with 0.016 seconds remaining and immediately re-pauses on the
+        same frame, the timer can expire inside the playing update for that single frame before the
+        pause event handler fires. This sets <code>game_state = "game_over"</code>, plays the gameover
+        sound, and writes stats — all from a frame where the player was attempting to pause. This is a
+        rare race but the gameover sound playing unexpectedly while the user is pressing ESC is jarring.
+        Additionally, when Q-quit fires from the paused state, <code>_total_paused_ms</code> is NOT
+        added to before returning to menu — meaning if the same session is somehow resumed, the timer
+        would be wrong. Currently Q-quit always goes to character_select so this is a latent issue
+        only if future code adds a "resume" path.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — lines 662–668: Q-quit does not accumulate pause time</div>
+        <pre>        elif game_state == "paused":
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    _total_paused_ms += pygame.time.get_ticks() - _pause_start_ms
+                    game_state = "playing"
+                elif event.key == pygame.K_q:
+<span class="hl">                    game_state = "character_select"  # _pause_start_ms never cleared</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — accumulate and reset pause tracking on Q-quit</div>
+        <pre><span class="fix">                elif event.key == pygame.K_q:
+                    _total_paused_ms += pygame.time.get_ticks() - _pause_start_ms
+                    _pause_start_ms = 0
+                    game_state = "character_select"</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- MED-06 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag MED">MED</span>
+      <div class="finding-title">
+        <h3>MED-06 — <code>is_new_high_score = True</code> when score is 0 and leaderboard is empty</h3>
+        <div class="location">geocatch_pygame.py : 787 | Feature #11 / game-over transition</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        The high-score check reads: <code>score &gt; 0 and (...)</code>. This is correct in intent —
+        a 0 score should not be flagged as a new high score. However the condition uses <code>score &gt; 0</code>
+        as a left-hand guard via Python short-circuit, so a score of 0 always evaluates to <code>False</code>.
+        This is actually correct. However: on first launch when <code>high_scores</code> is empty and the
+        player scores 0, the <code>else True</code> branch in the ternary would fire — except it is
+        gated by <code>score &gt; 0</code> first, so it remains False. Logic is correct. The <em>real</em>
+        subtle bug here is that <code>score &gt; 0</code> with a full board of 5 scores all equal to 0
+        would also return False — meaning a 1-point score would correctly return True (leaderboard &lt; 5
+        or score &gt; min). No actual bug but the conditional is confusing and will mislead future maintainers.
+      </p>
+      <div class="code-block">
+        <div class="code-label note">Note — line 787 (confusing but technically correct)</div>
+        <pre>            is_new_high_score = score > 0 and (
+                (len(high_scores) &lt; 5 or score > min(s for _, s in high_scores))
+                if high_scores else True
+            )
+<span class="cmt">            # Edge case: score=0, high_scores=[] → False (correct, gated by score>0)
+            # Edge case: score=1, high_scores=[] → True (correct)
+            # Confusing: parenthesised ternary mixes "if high_scores" with outer "and"</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Clarify — extract readable helper</div>
+        <pre><span class="fix">def _qualifies_for_leaderboard(sc):
+    if sc <= 0:
+        return False
+    if len(high_scores) < 5:
+        return True
+    return sc > min(s for _, s in high_scores)
+
+is_new_high_score = _qualifies_for_leaderboard(score)</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- MED-07 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag MED">MED</span>
+      <div class="finding-title">
+        <h3>MED-07 — <code>_go_bg_pulse_surf</code> filled twice per frame for a cosmetic effect</h3>
+        <div class="location">geocatch_pygame.py : 944–946 | Game-over draw</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        The background pulse on the game-over screen calls <code>fill((0,0,0,0))</code> then immediately
+        <code>fill((20,20,40,_pulse_alpha))</code> on the same full-screen (1000×700) SRCALPHA surface.
+        The first fill is wasted — a single fill with the target color replaces it. The second fill
+        composites the pulse directly into the already-solid <code>(12,12,24)</code> background,
+        producing a tiny flicker effect. The whole mechanism can be replaced with <code>set_alpha()</code>
+        on a non-SRCALPHA surface (same fix as HIGH-01's root cause), or by skipping the intermediate
+        surface entirely and drawing directly.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — lines 944–946</div>
+        <pre><span class="hl">        _go_bg_pulse_surf.fill((0, 0, 0, 0))           # wasted — immediately overwritten</span>
+        _go_bg_pulse_surf.fill((20, 20, 40, _pulse_alpha))
+        screen.blit(_go_bg_pulse_surf, (0, 0))</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — single fill, no wasted clear</div>
+        <pre><span class="fix">        _go_bg_pulse_surf.fill((20, 20, 40, _pulse_alpha))
+        screen.blit(_go_bg_pulse_surf, (0, 0))</span></pre>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /findings -->
+
+<!-- ══ LOW FINDINGS ═════════════════════════════════════════════════════════ -->
+<div class="section-header">
+  <h2 style="color:var(--green)">Low Findings</h2>
+  <p>Polish, naming clarity, and minor inefficiencies.</p>
+</div>
+<div class="findings">
+
+  <!-- LOW-01 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag LOW">LOW</span>
+      <div class="finding-title">
+        <h3>LOW-01 — <code>_arrow_hint</code> rendered from <code>tiny_font</code> every frame on character-select</h3>
+        <div class="location">geocatch_pygame.py : 912 | Character-select draw</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        The navigation hint label is a static string that never changes, yet it is rendered with
+        <code>tiny_font.render()</code> on every draw frame of the character-select screen. Pre-render
+        it alongside the other pre-baked character-select surfaces at module level.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — line 912</div>
+        <pre><span class="hl">        _arrow_hint = tiny_font.render("&lt; A/D or Arrow Keys to browse &gt;", True, (120, 120, 120))</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — move to module level with other pre-renders (~line 530)</div>
+        <pre><span class="fix">_cs_arrow_hint = tiny_font.render("&lt; A/D or Arrow Keys to browse &gt;", True, (120, 120, 120))</span>
+<span class="cmt"># In draw block:</span>
+<span class="fix">        screen.blit(_cs_arrow_hint, (cx - _cs_arrow_hint.get_width() // 2, link_y + 22))</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOW-02 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag LOW">LOW</span>
+      <div class="finding-title">
+        <h3>LOW-02 — Mono sound buffer may mismatch Pygame mixer channel count on some platforms</h3>
+        <div class="location">geocatch_pygame.py : 9, 43–54 | Feature #1 Sound</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        <code>pygame.mixer.pre_init(44100, -16, 1, 512)</code> requests a mono mixer. The tone generator
+        correctly creates a mono <code>array.array('h')</code> buffer and passes it directly to
+        <code>pygame.mixer.Sound(buffer=buf)</code>. This works correctly on Windows and most Linux
+        setups. However, on some macOS and Linux configurations the system audio driver silently upgrades
+        the channel count to 2 even when 1 is requested — causing Pygame to report <code>channels=2</code>
+        after <code>pygame.init()</code>. In that scenario, a mono buffer supplied to
+        <code>Sound(buffer=)</code> is interpreted as half-length stereo, producing a sound at half the
+        intended duration with garbage in the second channel. Wrapping in the existing try/except makes
+        this survivable, but the audio will be subtly wrong rather than silently absent.
+      </p>
+      <div class="code-block">
+        <div class="code-label fix">Defensive fix — verify channel count post-init and duplicate if needed</div>
+        <pre><span class="fix">def _gen_tone(freq, duration_ms=100, volume=0.3, freq_end=None):
+    sr = 44100
+    n = int(sr * duration_ms / 1000)
+    if n == 0:
+        return None
+    channels = pygame.mixer.get_init()[2]  # actual channel count after init
+    buf = _array.array('h', [0] * n * channels)
+    fe = freq_end if freq_end else freq
+    for i in range(n):
+        t = i / sr
+        f = freq + (fe - freq) * (i / n)
+        fade = 1.0
+        fs = int(n * 0.75)
+        if i > fs and n > fs:
+            fade = (n - i) / (n - fs)
+        val = int(volume * 32767 * math.sin(2 * math.pi * f * t) * fade)
+        val = max(-32768, min(32767, val))
+        for ch in range(channels):
+            buf[i * channels + ch] = val
+    return pygame.mixer.Sound(buffer=buf)</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOW-03 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag LOW">LOW</span>
+      <div class="finding-title">
+        <h3>LOW-03 — Streak multiplier display shows <code>x1.5</code> / <code>x2.0</code> but streak resets silently on bomb hit</h3>
+        <div class="location">geocatch_pygame.py : 710–712, 1168–1174 | Feature #3 Streak</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        When a bomb hit resets the streak (lines 710–712), the streak pill disappears on the next frame
+        (the pill is only drawn when <code>streak_multiplier &gt; 1.0</code>). There is no visual or
+        audio cue that the streak was lost — the player sees the bomb flash and score deduction, but
+        the multiplier simply vanishes silently. Consider showing a brief "STREAK LOST!" float text
+        alongside the −100 float, or coloring the pill red for one second before it disappears.
+      </p>
+      <div class="code-block">
+        <div class="code-label fix">Suggested improvement — add streak-lost float text</div>
+        <pre><span class="cmt">            # In the bomb-hit block, after lines 710–712:</span>
+<span class="fix">                if catch_streak >= 3:   # only show if streak was active
+                    float_texts.append(_make_float_text(
+                        "STREAK LOST!", bx, by - 30, (255, 82, 82)
+                    ))</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOW-04 -->
+  <div class="finding">
+    <div class="finding-header">
+      <span class="tag LOW">LOW</span>
+      <div class="finding-title">
+        <h3>LOW-04 — Pacer creature can orbit outside the restricted-spawn east wall (x &gt; 800)</h3>
+        <div class="location">geocatch_pygame.py : 729–731 | Feature #12, #5</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>
+        Feature #12 restricts creature spawn to <code>px &lt;= 800</code> to keep them out of the east
+        Antioch Road corridor. However, a Pacer spawned at x=790 with the default <code>orbit_r=30</code>
+        sweeps from x=760 to x=820 — 20 pixels into the restricted corridor. This is a minor visual
+        inconsistency but directly contradicts the design intent of feature #12.
+      </p>
+      <div class="code-block">
+        <div class="code-label bug">Bug — lines 729–731: orbit can exceed x=800</div>
+        <pre>            if beh == "pacer":
+                c["orbit_angle"] += c.get("orbit_speed", 1.0) * dt
+<span class="hl">                c["x"] = c["orbit_cx"] + math.cos(c["orbit_angle"]) * c.get("orbit_r", 30)  # can exceed 800</span>
+                c["y"] = c["orbit_cy"] + math.sin(c["orbit_angle"]) * c.get("orbit_r", 30)</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label fix">Fix — clamp pacer x to the same bound used in spawn</div>
+        <pre><span class="fix">                c["x"] = min(800, c["orbit_cx"] + math.cos(c["orbit_angle"]) * c.get("orbit_r", 30))
+                c["y"] = c["orbit_cy"] + math.sin(c["orbit_angle"]) * c.get("orbit_r", 30)</span></pre>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /findings -->
+
+<!-- ══ SUMMARY ═════════════════════════════════════════════════════════════ -->
+<div class="section-header" style="margin-top:36px;">
+  <h2>Recommended Fix Order</h2>
+  <p>Prioritised implementation sequence — complete criticals before any feature work.</p>
+</div>
+<div class="summary-grid" style="margin-top:20px;">
+  <div class="summary-card">
+    <h4>Sprint 1 — Crash &amp; Data Loss</h4>
+    <ul>
+      <li>CRIT-01: wrap <code>save_high_score()</code> file write in try/except</li>
+      <li>CRIT-02: add <code>if _go_cache:</code> guard on lines 967 &amp; 972</li>
+      <li>CRIT-03: pre-allocate single bubble surface at module level</li>
+    </ul>
+  </div>
+  <div class="summary-card">
+    <h4>Sprint 2 — Gameplay Correctness</h4>
+    <ul>
+      <li>HIGH-01: replace SRCALPHA fade surface with non-SRCALPHA + colorkey</li>
+      <li>HIGH-03: extend catch alpha guard to include fader_alpha</li>
+      <li>HIGH-04: add lake/rock check to blinker teleport &amp; drifter bounce</li>
+      <li>MED-04: improve bomb spawn fallback to guarantee player clearance</li>
+    </ul>
+  </div>
+  <div class="summary-card">
+    <h4>Sprint 3 — Performance</h4>
+    <ul>
+      <li>HIGH-02: convert bomb_cooldown to seconds (dt-based)</li>
+      <li>HIGH-05: pre-render scores popup, rebuild on save_high_score()</li>
+      <li>MED-03: cache HUD pill font surfaces, invalidate on value change</li>
+      <li>MED-02: cache score surface once _go_anim_done is True</li>
+    </ul>
+  </div>
+  <div class="summary-card">
+    <h4>Sprint 4 — Polish</h4>
+    <ul>
+      <li>MED-01: proportional score counter animation (not fixed-10 steps)</li>
+      <li>MED-05: accumulate pause ms on Q-quit</li>
+      <li>MED-06: extract <code>_qualifies_for_leaderboard()</code> helper</li>
+      <li>MED-07: remove redundant double-fill in bg pulse</li>
+      <li>LOW-01 through LOW-04: see individual findings</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ══ FOOTER ══════════════════════════════════════════════════════════════ -->
+<footer>
+  GeoCatch — Pygame Desktop — Technical Code Review &nbsp;|&nbsp;
+  SeniorTechLead &nbsp;|&nbsp; 2026-03-08 &nbsp;|&nbsp;
+  19 total findings across 1,190 lines / 15 new features
+</footer>
+
+</body>
+</html>
