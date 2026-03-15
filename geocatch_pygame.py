@@ -317,7 +317,8 @@ for _ct in CREATURE_TYPES:
     _type_circles[_ct["name"]] = _tc_surf
 
 _phantom_glow_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
-_pulse_ring_surf = pygame.Surface((124, 124), pygame.SRCALPHA)
+_pulse_ring_surf = pygame.Surface((164, 164), pygame.SRCALPHA)
+_range_ring_surf = pygame.Surface((114, 114), pygame.SRCALPHA)
 
 # Pre-allocated game-over surfaces — CRIT-02: non-SRCALPHA so set_alpha() works
 _go_flash_surf = pygame.Surface((WIDTH, HEIGHT))
@@ -1503,15 +1504,25 @@ while running:
             screen.blit(label_text, (lbl_x + pad_x, lbl_y + pad_y))
 
         screen.blit(_shad_trainer, (player_x - 30 + _shake_ox, player_y + 40 + _shake_oy))
-        pygame.draw.circle(screen, (200, 200, 200), (player_x + _shake_ox, player_y + _shake_oy), 55, 1)
+        # Range circle — draw on pre-allocated SRCALPHA surface for proper alpha
+        _range_ring_surf.fill((0, 0, 0, 0))
+        pygame.draw.circle(_range_ring_surf, (*ACCENT, 70), (57, 57), 55, 2)
+        screen.blit(_range_ring_surf, (player_x - 57 + _shake_ox, player_y - 57 + _shake_oy))
 
         _pt = pygame.time.get_ticks() / 1000.0
         _pulse = (_pt * 1.2) % 1.0
         _ring_r = 30 + int(_pulse * 28)
         _ring_alpha = int(210 * (1 - _pulse))
         _pulse_ring_surf.fill((0, 0, 0, 0))
-        pygame.draw.circle(_pulse_ring_surf, (*ACCENT, _ring_alpha), (62, 62), _ring_r, 2)
-        screen.blit(_pulse_ring_surf, (player_x - 62 + _shake_ox, player_y - 10 - 62 + _shake_oy))
+        # Outer glow layer (wide, faint)
+        _glow_alpha = max(0, _ring_alpha // 4)
+        pygame.draw.circle(_pulse_ring_surf, (*ACCENT, _glow_alpha), (82, 82), _ring_r + 4, 8)
+        # Mid glow layer
+        _mid_alpha = max(0, _ring_alpha // 2)
+        pygame.draw.circle(_pulse_ring_surf, (*ACCENT, _mid_alpha), (82, 82), _ring_r + 1, 5)
+        # Core ring (thick, bright)
+        pygame.draw.circle(_pulse_ring_surf, (*ACCENT, _ring_alpha), (82, 82), _ring_r, 4)
+        screen.blit(_pulse_ring_surf, (player_x - 82 + _shake_ox, player_y - 10 - 82 + _shake_oy))
 
         if trainer_images[selected_char]:
             screen.blit(trainer_images[selected_char], (player_x - 28 + _shake_ox, player_y - 45 + _shake_oy))
