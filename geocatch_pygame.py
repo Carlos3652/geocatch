@@ -353,6 +353,62 @@ for _sv, _sc in [(1.5, ACCENT), (2.0, SCORE_GOLD)]:
     _sp_surf.blit(_st, (10, 2))
     _streak_pills[_sv] = _sp_surf
 
+# ── HUD creature icons ──────────────────────────────────────────────────────
+_HUD_ICON_SIZE = 28
+_HUD_ICON_GAP = 6
+_HUD_ICON_Y = 96          # below score pill (y=12,h=44) and streak pill (y=60,h=28)
+_HUD_ICON_X = 15
+_HUD_NEARBY_RANGE = 120   # pixel range to consider a creature "nearby"
+_HUD_CATCH_FLASH_DUR = 1.0  # seconds of gold flash after catching
+
+_hud_icon_font = pygame.font.SysFont("Arial", 13, bold=True)
+
+def build_hud_icon(color, initial, border_color, bg_alpha=220):
+    """Build a single small HUD creature icon surface."""
+    s = pygame.Surface((_HUD_ICON_SIZE, _HUD_ICON_SIZE), pygame.SRCALPHA)
+    r = _HUD_ICON_SIZE // 2
+    pygame.draw.circle(s, (*color[:3], bg_alpha), (r, r), r)
+    pygame.draw.circle(s, (*border_color[:3], 255), (r, r), r, 2)
+    lbl = _hud_icon_font.render(initial, True, (255, 255, 255))
+    s.blit(lbl, (r - lbl.get_width() // 2, r - lbl.get_height() // 2))
+    return s
+
+# Build three icon variants per creature type: active (nearby), caught, dim
+_hud_icons_active = {}   # bright, full color — creature is nearby
+_hud_icons_caught = {}   # medium color — in inventory but not nearby
+_hud_icons_dim = {}      # grey — not seen / not caught
+for _ct in CREATURE_TYPES:
+    _key = _ct["image_key"]
+    _col = CREATURE_COLORS[_ct["name"]]
+    _ini = CREATURE_INITIALS[_ct["name"]]
+    _hud_icons_active[_key] = build_hud_icon(_col, _ini, (255, 255, 255))
+    _hud_icons_caught[_key] = build_hud_icon(
+        (int(_col[0] * 0.6), int(_col[1] * 0.6), int(_col[2] * 0.6)),
+        _ini, (_col[0], _col[1], _col[2]), 160)
+    _hud_icons_dim[_key] = build_hud_icon((60, 60, 70), _ini, (90, 90, 100), 120)
+
+# Pre-rendered gold ring surface for catch flash overlay on HUD icons
+_hud_flash_ring = pygame.Surface((_HUD_ICON_SIZE, _HUD_ICON_SIZE), pygame.SRCALPHA)
+pygame.draw.circle(_hud_flash_ring, (*SCORE_GOLD, 180),
+                    (_HUD_ICON_SIZE // 2, _HUD_ICON_SIZE // 2), _HUD_ICON_SIZE // 2, 3)
+
+# Runtime state: recently-caught flash timers per image_key
+_hud_catch_flash = {}
+
+def hud_icon_state(image_key, nearby_keys, caught_names):
+    """Determine icon state: 'active', 'caught', or 'dim'."""
+    if image_key in nearby_keys:
+        return "active"
+    # Check if this creature type is in the inventory
+    ct_name = None
+    for ct in CREATURE_TYPES:
+        if ct["image_key"] == image_key:
+            ct_name = ct["name"]
+            break
+    if ct_name and ct_name in caught_names:
+        return "caught"
+    return "dim"
+
 # MED-03/05: Pre-rendered static end screen text
 _go_no_scores = tiny_font.render("No scores yet!", True, (120, 120, 130))
 _go_saved = small_font.render("Saved!", True, (100, 230, 100))
@@ -556,7 +612,7 @@ def reset_game():
     global catch_streak, streak_multiplier, catch_animations, catch_particles, shake_frames, shake_magnitude
     global _total_paused_ms, _pause_start_ms, _escalation_triggered, _bob_speed
     global _spawn_delay_timer, _last_tick_second
-    global _go_cache, _go_fireworks, _go_caught_keys, _cs_popup
+    global _go_cache, _go_fireworks, _go_caught_keys, _cs_popup, _hud_catch_flash
     score = 0
     game_time = 60
     inventory = []
@@ -587,6 +643,7 @@ def reset_game():
     _go_cache = None
     _go_fireworks = []
     _go_caught_keys = set()
+    _hud_catch_flash = {}
     _cs_popup = None
 
 
@@ -768,6 +825,7 @@ while running:
                             pts = int(base_pts * streak_multiplier)
                             score += pts
                             inventory.append(caught["name"])
+                            _hud_catch_flash[caught["image_key"]] = _HUD_CATCH_FLASH_DUR
                             float_texts.append(_make_float_text(f"+{pts}", c["x"], c["y"], SCORE_GOLD))
                             # #14: Update cumulative stats
                             _stats["total_catches"][caught["name"]] = _stats["total_catches"].get(caught["name"], 0) + 1
@@ -922,6 +980,12 @@ while running:
             cp["y"] += cp["vy"] * dt
             cp["life"] -= dt
         catch_particles[:] = [cp for cp in catch_particles if cp["life"] > 0]
+
+        # HUD creature icon: decay catch flash timers
+        for _hf_key in list(_hud_catch_flash):
+            _hud_catch_flash[_hf_key] -= dt
+            if _hud_catch_flash[_hf_key] <= 0:
+                del _hud_catch_flash[_hf_key]
 
         # #8: Decay screen shake
         if shake_frames > 0:
@@ -1447,6 +1511,29 @@ while running:
             _sp = _streak_pills.get(streak_multiplier)
             if _sp:
                 screen.blit(_sp, (15, 60))
+
+        # HUD creature icons row
+        _hud_nearby_keys = set()
+        for c in creatures:
+            if math.hypot(player_x - c["x"], player_y - c["y"]) < _HUD_NEARBY_RANGE:
+                _hud_nearby_keys.add(c["type"]["image_key"])
+        _hud_caught_set = set(inventory)
+        for _hi, _hct in enumerate(CREATURE_TYPES):
+            _hk = _hct["image_key"]
+            _hx = _HUD_ICON_X + _hi * (_HUD_ICON_SIZE + _HUD_ICON_GAP)
+            _hy = _HUD_ICON_Y
+            _hstate = hud_icon_state(_hk, _hud_nearby_keys, _hud_caught_set)
+            if _hstate == "active":
+                screen.blit(_hud_icons_active[_hk], (_hx, _hy))
+            elif _hstate == "caught":
+                screen.blit(_hud_icons_caught[_hk], (_hx, _hy))
+            else:
+                screen.blit(_hud_icons_dim[_hk], (_hx, _hy))
+            # Gold ring flash on recent catch
+            if _hk in _hud_catch_flash:
+                _hf_alpha = int(255 * (_hud_catch_flash[_hk] / _HUD_CATCH_FLASH_DUR))
+                _hud_flash_ring.set_alpha(_hf_alpha)
+                screen.blit(_hud_flash_ring, (_hx, _hy))
 
         # Timer pill (top-right)
         elapsed = (pygame.time.get_ticks() - start_ticks - _total_paused_ms) / 1000
