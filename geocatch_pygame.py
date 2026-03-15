@@ -767,11 +767,12 @@ while running:
                             float_texts.append(_make_float_text(f"+{pts}", c["x"], c["y"], SCORE_GOLD))
                             # #14: Update cumulative stats
                             _stats["total_catches"][caught["name"]] = _stats["total_catches"].get(caught["name"], 0) + 1
-                            # #6: Catch pop animation instead of instant removal
+                            # #6: Catch expand-implode animation
                             catch_animations.append({
                                 "x": c["x"], "y": c["y"],
                                 "image_key": caught["image_key"],
-                                "timer": 0.15,
+                                "timer": 0.24,
+                                "max_timer": 0.24,
                                 "bob": c.get("_bob", 0),
                             })
                             _play(_snd_catch)  # #1
@@ -1324,9 +1325,22 @@ while running:
             else:
                 pygame.draw.circle(screen, WHITE, (_cx, _cy + bob), 25)
 
-        # #6: Draw catch pop animations
+        # #6: Draw catch expand-implode animations
         for ca in catch_animations:
-            scale = ca["timer"] / 0.15
+            elapsed = ca["max_timer"] - ca["timer"]
+            expand_dur = 0.08   # 80ms expand phase
+            total_dur = ca["max_timer"]  # 240ms total
+            if elapsed < expand_dur:
+                # Expand phase: scale 1.0 -> 1.4 with ease-out
+                t = elapsed / expand_dur
+                ease_t = 1.0 - (1.0 - t) ** 2  # ease-out quadratic
+                scale = 1.0 + 0.4 * ease_t
+            else:
+                # Implode phase: scale 1.4 -> 0 with ease-in
+                t = (elapsed - expand_dur) / (total_dur - expand_dur)
+                t = min(t, 1.0)
+                ease_t = t * t  # ease-in quadratic
+                scale = 1.4 * (1.0 - ease_t)
             if scale > 0:
                 size = max(1, int(_STICKER_SIZE * scale))
                 _stk = _sticker_surfs.get(ca["image_key"])
