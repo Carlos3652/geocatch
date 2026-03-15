@@ -120,7 +120,7 @@ streak_multiplier = 1.0
 # #6: Catch pop animations
 catch_animations = []
 
-# Catch burst particles
+# Catch particle burst effect
 catch_particles = []
 
 # #8: Screen shake
@@ -317,8 +317,7 @@ for _ct in CREATURE_TYPES:
     _type_circles[_ct["name"]] = _tc_surf
 
 _phantom_glow_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
-_pulse_ring_surf = pygame.Surface((164, 164), pygame.SRCALPHA)
-_range_ring_surf = pygame.Surface((114, 114), pygame.SRCALPHA)
+_pulse_ring_surf = pygame.Surface((124, 124), pygame.SRCALPHA)
 
 # Pre-allocated game-over surfaces — CRIT-02: non-SRCALPHA so set_alpha() works
 _go_flash_surf = pygame.Surface((WIDTH, HEIGHT))
@@ -354,62 +353,6 @@ for _sv, _sc in [(1.5, ACCENT), (2.0, SCORE_GOLD)]:
     _sp_surf.blit(_st, (10, 2))
     _streak_pills[_sv] = _sp_surf
 
-# ── HUD creature icons ──────────────────────────────────────────────────────
-_HUD_ICON_SIZE = 28
-_HUD_ICON_GAP = 6
-_HUD_ICON_Y = 96          # below score pill (y=12,h=44) and streak pill (y=60,h=28)
-_HUD_ICON_X = 15
-_HUD_NEARBY_RANGE = 120   # pixel range to consider a creature "nearby"
-_HUD_CATCH_FLASH_DUR = 1.0  # seconds of gold flash after catching
-
-_hud_icon_font = pygame.font.SysFont("Arial", 13, bold=True)
-
-def build_hud_icon(color, initial, border_color, bg_alpha=220):
-    """Build a single small HUD creature icon surface."""
-    s = pygame.Surface((_HUD_ICON_SIZE, _HUD_ICON_SIZE), pygame.SRCALPHA)
-    r = _HUD_ICON_SIZE // 2
-    pygame.draw.circle(s, (*color[:3], bg_alpha), (r, r), r)
-    pygame.draw.circle(s, (*border_color[:3], 255), (r, r), r, 2)
-    lbl = _hud_icon_font.render(initial, True, (255, 255, 255))
-    s.blit(lbl, (r - lbl.get_width() // 2, r - lbl.get_height() // 2))
-    return s
-
-# Build three icon variants per creature type: active (nearby), caught, dim
-_hud_icons_active = {}   # bright, full color — creature is nearby
-_hud_icons_caught = {}   # medium color — in inventory but not nearby
-_hud_icons_dim = {}      # grey — not seen / not caught
-for _ct in CREATURE_TYPES:
-    _key = _ct["image_key"]
-    _col = CREATURE_COLORS[_ct["name"]]
-    _ini = CREATURE_INITIALS[_ct["name"]]
-    _hud_icons_active[_key] = build_hud_icon(_col, _ini, (255, 255, 255))
-    _hud_icons_caught[_key] = build_hud_icon(
-        (int(_col[0] * 0.6), int(_col[1] * 0.6), int(_col[2] * 0.6)),
-        _ini, (_col[0], _col[1], _col[2]), 160)
-    _hud_icons_dim[_key] = build_hud_icon((60, 60, 70), _ini, (90, 90, 100), 120)
-
-# Pre-rendered gold ring surface for catch flash overlay on HUD icons
-_hud_flash_ring = pygame.Surface((_HUD_ICON_SIZE, _HUD_ICON_SIZE), pygame.SRCALPHA)
-pygame.draw.circle(_hud_flash_ring, (*SCORE_GOLD, 180),
-                    (_HUD_ICON_SIZE // 2, _HUD_ICON_SIZE // 2), _HUD_ICON_SIZE // 2, 3)
-
-# Runtime state: recently-caught flash timers per image_key
-_hud_catch_flash = {}
-
-def hud_icon_state(image_key, nearby_keys, caught_names):
-    """Determine icon state: 'active', 'caught', or 'dim'."""
-    if image_key in nearby_keys:
-        return "active"
-    # Check if this creature type is in the inventory
-    ct_name = None
-    for ct in CREATURE_TYPES:
-        if ct["image_key"] == image_key:
-            ct_name = ct["name"]
-            break
-    if ct_name and ct_name in caught_names:
-        return "caught"
-    return "dim"
-
 # MED-03/05: Pre-rendered static end screen text
 _go_no_scores = tiny_font.render("No scores yet!", True, (120, 120, 130))
 _go_saved = small_font.render("Saved!", True, (100, 230, 100))
@@ -417,12 +360,8 @@ _go_saved_hint = tiny_font.render("Press R to play again", True, (180, 180, 190)
 _go_noscore = small_font.render("No score", True, (160, 160, 170))
 _go_noscore_hint = tiny_font.render("Press R to try again", True, (140, 140, 150))
 _go_enter_hint = tiny_font.render("Press ENTER to save", True, (140, 200, 140))
-_go_save_title = small_font.render("SAVE YOUR SCORE", True, SCORE_GOLD)
-_go_name_lbl = tiny_font.render("Name (max 5 chars):", True, (180, 180, 190))
-_go_placeholder = small_font.render("ENTER NAME", True, (80, 80, 100))
-# Pre-render submit button surfaces (normal + active)
-_go_submit_txt = tiny_font.render("SUBMIT", True, WHITE)
-_go_submit_txt_dim = tiny_font.render("SUBMIT", True, (100, 100, 120))
+_go_save_title = tiny_font.render("SAVE YOUR SCORE", True, SCORE_GOLD)
+_go_name_lbl = tiny_font.render("Name (max 5 chars):", True, (160, 160, 170))
 _trainer_fallback = font.render("T", True, WHITE)  # LOW-01: pre-rendered trainer fallback
 
 # Pre-allocated pause overlay surfaces (#10)
@@ -614,10 +553,10 @@ def spawn_creatures(n=8):
 def reset_game():
     global score, inventory, player_x, player_y, start_ticks, creatures, bombs, float_texts
     global bomb_flash_frames, bomb_cooldown, score_saved, is_new_high_score, name_input, game_time
-    global catch_streak, streak_multiplier, catch_animations, catch_particles, shake_frames, shake_magnitude
+    global catch_streak, streak_multiplier, catch_animations, shake_frames, shake_magnitude
     global _total_paused_ms, _pause_start_ms, _escalation_triggered, _bob_speed
     global _spawn_delay_timer, _last_tick_second
-    global _go_cache, _go_fireworks, _go_caught_keys, _cs_popup, _hud_catch_flash
+    global _go_cache, _go_fireworks, _go_caught_keys, _cs_popup
     score = 0
     game_time = 60
     inventory = []
@@ -648,7 +587,6 @@ def reset_game():
     _go_cache = None
     _go_fireworks = []
     _go_caught_keys = set()
-    _hud_catch_flash = {}
     _cs_popup = None
 
 
@@ -830,33 +768,34 @@ while running:
                             pts = int(base_pts * streak_multiplier)
                             score += pts
                             inventory.append(caught["name"])
-                            _hud_catch_flash[caught["image_key"]] = _HUD_CATCH_FLASH_DUR
                             float_texts.append(_make_float_text(f"+{pts}", c["x"], c["y"], SCORE_GOLD))
                             # #14: Update cumulative stats
                             _stats["total_catches"][caught["name"]] = _stats["total_catches"].get(caught["name"], 0) + 1
-                            # #6: Catch expand-implode animation
+                            # #6: Catch pop animation instead of instant removal
                             catch_animations.append({
                                 "x": c["x"], "y": c["y"],
                                 "image_key": caught["image_key"],
-                                "timer": 0.24,
-                                "max_timer": 0.24,
+                                "timer": 0.15,
                                 "bob": c.get("_bob", 0),
                             })
-                            # Catch burst particles: 8-12 colored dots radiating outward
-                            _bp_color = CREATURE_COLORS.get(caught["name"], ACCENT)
-                            _bp_count = random.randint(8, 12)
-                            for _bp_i in range(_bp_count):
-                                _bp_angle = 2 * math.pi * _bp_i / _bp_count + random.uniform(-0.3, 0.3)
-                                _bp_speed = random.uniform(60, 140)
+                            # Catch particle burst — spawn 8-12 colored dots
+                            _pc = CREATURE_COLORS.get(caught["name"], ACCENT)
+                            for _pi in range(random.randint(8, 12)):
+                                _angle = random.uniform(0, 2 * math.pi)
+                                _speed = random.uniform(80, 180)
                                 catch_particles.append({
                                     "x": float(c["x"]),
-                                    "y": float(c["y"]) + c.get("_bob", 0),
-                                    "vx": math.cos(_bp_angle) * _bp_speed,
-                                    "vy": math.sin(_bp_angle) * _bp_speed,
+                                    "y": float(c["y"]),
+                                    "vx": math.cos(_angle) * _speed,
+                                    "vy": math.sin(_angle) * _speed,
                                     "life": 0.5,
                                     "max_life": 0.5,
-                                    "color": _bp_color,
-                                    "r": random.randint(2, 4),
+                                    "color": (
+                                        min(255, _pc[0] + random.randint(-30, 30)),
+                                        min(255, _pc[1] + random.randint(-30, 30)),
+                                        min(255, _pc[2] + random.randint(-30, 30)),
+                                    ),
+                                    "r": random.randint(2, 5),
                                 })
                             _play(_snd_catch)  # #1
                             del creatures[i]
@@ -979,18 +918,12 @@ while running:
             ca["timer"] -= dt
         catch_animations[:] = [ca for ca in catch_animations if ca["timer"] > 0]
 
-        # Update catch burst particles
+        # Update catch particles
         for cp in catch_particles:
             cp["x"] += cp["vx"] * dt
             cp["y"] += cp["vy"] * dt
             cp["life"] -= dt
         catch_particles[:] = [cp for cp in catch_particles if cp["life"] > 0]
-
-        # HUD creature icon: decay catch flash timers
-        for _hf_key in list(_hud_catch_flash):
-            _hud_catch_flash[_hf_key] -= dt
-            if _hud_catch_flash[_hf_key] <= 0:
-                del _hud_catch_flash[_hf_key]
 
         # #8: Decay screen shake
         if shake_frames > 0:
@@ -1298,73 +1231,47 @@ while running:
             screen.blit(_go_cache["pb"], (cx - 10 - _go_cache["pb"].get_width(), _stats_y))
             screen.blit(_go_cache["at"], (cx + 10, _stats_y))
 
-        # ── Elevated name entry card (centered above leaderboard) ──
+        # ── Two-column bottom: leaderboard left, name entry right ──
         _bot_y = _stats_y + 24
-        _card_w = 320
-        _card_h = 150
-        _card_x = cx - _card_w // 2
-        _card_y = _bot_y
+        _col_w = 240
+        _col_gap = 40
+        _left_x = cx - _col_gap // 2 - _col_w
+        _right_x = cx + _col_gap // 2
 
-        # Shadow layer (offset down-right for depth)
-        pygame.draw.rect(screen, (10, 10, 20), (_card_x + 4, _card_y + 4, _card_w, _card_h), border_radius=14)
-        # Card background
-        pygame.draw.rect(screen, (30, 32, 52), (_card_x, _card_y, _card_w, _card_h), border_radius=14)
-        # Accent top border stripe
-        pygame.draw.rect(screen, ACCENT, (_card_x, _card_y, _card_w, 4), border_radius=2)
-        # Subtle border
-        pygame.draw.rect(screen, (60, 65, 90), (_card_x, _card_y, _card_w, _card_h), width=1, border_radius=14)
-
-        if score_saved:
-            screen.blit(_go_saved, (_card_x + _card_w // 2 - _go_saved.get_width() // 2, _card_y + 40))
-            screen.blit(_go_saved_hint, (_card_x + _card_w // 2 - _go_saved_hint.get_width() // 2, _card_y + 75))
-        elif score == 0:
-            screen.blit(_go_noscore, (_card_x + _card_w // 2 - _go_noscore.get_width() // 2, _card_y + 40))
-            screen.blit(_go_noscore_hint, (_card_x + _card_w // 2 - _go_noscore_hint.get_width() // 2, _card_y + 75))
-        else:
-            # Title
-            screen.blit(_go_save_title, (_card_x + _card_w // 2 - _go_save_title.get_width() // 2, _card_y + 14))
-            screen.blit(_go_name_lbl, (_card_x + _card_w // 2 - _go_name_lbl.get_width() // 2, _card_y + 44))
-            # Prominent input field
-            _pill_w, _pill_h = 200, 42
-            _pill_x = _card_x + 16
-            _pill_y = _card_y + 66
-            pygame.draw.rect(screen, (20, 22, 38), (_pill_x, _pill_y, _pill_w, _pill_h), border_radius=10)
-            _input_border = ACCENT if len(name_input) > 0 else (80, 85, 110)
-            pygame.draw.rect(screen, _input_border, (_pill_x, _pill_y, _pill_w, _pill_h), width=2, border_radius=10)
-            if len(name_input) == 0:
-                # Placeholder text
-                screen.blit(_go_placeholder, (_pill_x + _pill_w // 2 - _go_placeholder.get_width() // 2, _pill_y + 9))
-            else:
-                cursor = "" if len(name_input) >= 5 else ("|" if int(_ticks * 2) % 2 == 0 else " ")
-                _name_surf = small_font.render(f"{name_input}{cursor}", True, WHITE)
-                screen.blit(_name_surf, (_pill_x + _pill_w // 2 - _name_surf.get_width() // 2, _pill_y + 9))
-            # Submit button
-            _btn_w, _btn_h = 80, 42
-            _btn_x = _card_x + _card_w - _btn_w - 16
-            _btn_y = _pill_y
-            _btn_active = len(name_input) > 0
-            _btn_bg = ACCENT if _btn_active else (50, 52, 70)
-            pygame.draw.rect(screen, _btn_bg, (_btn_x, _btn_y, _btn_w, _btn_h), border_radius=10)
-            if _btn_active:
-                pygame.draw.rect(screen, (255, 140, 90), (_btn_x, _btn_y, _btn_w, _btn_h), width=1, border_radius=10)
-            _btn_txt = _go_submit_txt if _btn_active else _go_submit_txt_dim
-            screen.blit(_btn_txt, (_btn_x + _btn_w // 2 - _btn_txt.get_width() // 2, _btn_y + 12))
-            if len(name_input) > 0:
-                screen.blit(_go_enter_hint, (_card_x + _card_w // 2 - _go_enter_hint.get_width() // 2, _card_y + 118))
-
-        # ── Leaderboard (centered below name entry card) ──
-        _lb_y = _card_y + _card_h + 12
-        _lb_w = 280
-        _lb_x = cx - _lb_w // 2
-        pygame.draw.rect(screen, (22, 24, 42), (_lb_x, _lb_y, _lb_w, 160), border_radius=10)
-        pygame.draw.rect(screen, (50, 55, 80), (_lb_x, _lb_y, _lb_w, 160), width=1, border_radius=10)
+        # Left column: Top 5 leaderboard (cached surfaces)
+        pygame.draw.rect(screen, (22, 24, 42), (_left_x, _bot_y, _col_w, 170), border_radius=10)
+        pygame.draw.rect(screen, (50, 55, 80), (_left_x, _bot_y, _col_w, 170), width=1, border_radius=10)
         if _go_cache:
-            screen.blit(_go_cache["lb_title"], (_lb_x + _lb_w // 2 - _go_cache["lb_title"].get_width() // 2, _lb_y + 8))
+            screen.blit(_go_cache["lb_title"], (_left_x + _col_w // 2 - _go_cache["lb_title"].get_width() // 2, _bot_y + 8))
             if _go_cache["lb_lines"]:
                 for i, _line in enumerate(_go_cache["lb_lines"]):
-                    screen.blit(_line, (_lb_x + 20, _lb_y + 30 + i * 26))
+                    screen.blit(_line, (_left_x + 20, _bot_y + 30 + i * 26))
             else:
-                screen.blit(_go_no_scores, (_lb_x + _lb_w // 2 - _go_no_scores.get_width() // 2, _lb_y + 60))
+                screen.blit(_go_no_scores, (_left_x + _col_w // 2 - _go_no_scores.get_width() // 2, _bot_y + 60))
+
+        # Right column: Name entry
+        pygame.draw.rect(screen, (22, 24, 42), (_right_x, _bot_y, _col_w, 170), border_radius=10)
+        pygame.draw.rect(screen, (50, 55, 80), (_right_x, _bot_y, _col_w, 170), width=1, border_radius=10)
+        if score_saved:
+            screen.blit(_go_saved, (_right_x + _col_w // 2 - _go_saved.get_width() // 2, _bot_y + 50))
+            screen.blit(_go_saved_hint, (_right_x + _col_w // 2 - _go_saved_hint.get_width() // 2, _bot_y + 85))
+        elif score == 0:
+            screen.blit(_go_noscore, (_right_x + _col_w // 2 - _go_noscore.get_width() // 2, _bot_y + 55))
+            screen.blit(_go_noscore_hint, (_right_x + _col_w // 2 - _go_noscore_hint.get_width() // 2, _bot_y + 85))
+        else:
+            screen.blit(_go_save_title, (_right_x + _col_w // 2 - _go_save_title.get_width() // 2, _bot_y + 12))
+            screen.blit(_go_name_lbl, (_right_x + _col_w // 2 - _go_name_lbl.get_width() // 2, _bot_y + 40))
+            # Pill input
+            _pill_w, _pill_h = 180, 38
+            _pill_x = _right_x + _col_w // 2 - _pill_w // 2
+            _pill_y = _bot_y + 62
+            pygame.draw.rect(screen, (36, 38, 56), (_pill_x, _pill_y, _pill_w, _pill_h), border_radius=18)
+            pygame.draw.rect(screen, ACCENT, (_pill_x, _pill_y, _pill_w, _pill_h), width=2, border_radius=18)
+            cursor = "" if len(name_input) >= 5 else ("|" if int(_ticks * 2) % 2 == 0 else " ")
+            _name_surf = small_font.render(f"{name_input}{cursor}", True, WHITE)
+            screen.blit(_name_surf, (_pill_x + _pill_w // 2 - _name_surf.get_width() // 2, _pill_y + 7))
+            if len(name_input) > 0:
+                screen.blit(_go_enter_hint, (_right_x + _col_w // 2 - _go_enter_hint.get_width() // 2, _bot_y + 108))
 
         # ── Always-visible navigation ──
         if _go_cache:
@@ -1447,22 +1354,9 @@ while running:
             else:
                 pygame.draw.circle(screen, WHITE, (_cx, _cy + bob), 25)
 
-        # #6: Draw catch expand-implode animations
+        # #6: Draw catch pop animations
         for ca in catch_animations:
-            elapsed = ca["max_timer"] - ca["timer"]
-            expand_dur = 0.08   # 80ms expand phase
-            total_dur = ca["max_timer"]  # 240ms total
-            if elapsed < expand_dur:
-                # Expand phase: scale 1.0 -> 1.4 with ease-out
-                t = elapsed / expand_dur
-                ease_t = 1.0 - (1.0 - t) ** 2  # ease-out quadratic
-                scale = 1.0 + 0.4 * ease_t
-            else:
-                # Implode phase: scale 1.4 -> 0 with ease-in
-                t = (elapsed - expand_dur) / (total_dur - expand_dur)
-                t = min(t, 1.0)
-                ease_t = t * t  # ease-in quadratic
-                scale = 1.4 * (1.0 - ease_t)
+            scale = ca["timer"] / 0.15
             if scale > 0:
                 size = max(1, int(_STICKER_SIZE * scale))
                 _stk = _sticker_surfs.get(ca["image_key"])
@@ -1471,14 +1365,18 @@ while running:
                     screen.blit(scaled, (int(ca["x"]) + _shake_ox - size // 2,
                                          int(ca["y"]) + _shake_oy - size // 2 + ca.get("bob", 0)))
 
-        # Draw catch burst particles
+        # Draw catch particles
         for cp in catch_particles:
-            _cp_frac = max(0.0, min(1.0, cp["life"] / cp["max_life"]))
-            _cp_col = (int(cp["color"][0] * _cp_frac),
-                       int(cp["color"][1] * _cp_frac),
-                       int(cp["color"][2] * _cp_frac))
-            _cp_r = max(1, int(cp["r"] * _cp_frac))
-            pygame.draw.circle(screen, _cp_col, (int(cp["x"]) + _shake_ox, int(cp["y"]) + _shake_oy), _cp_r)
+            _frac = cp["life"] / cp["max_life"]
+            _alpha = int(255 * _frac)
+            _pr = max(1, int(cp["r"] * _frac))
+            _pcol = (min(255, max(0, cp["color"][0])),
+                     min(255, max(0, cp["color"][1])),
+                     min(255, max(0, cp["color"][2])))
+            _ps = pygame.Surface((_pr * 2, _pr * 2), pygame.SRCALPHA)
+            pygame.draw.circle(_ps, (*_pcol, _alpha), (_pr, _pr), _pr)
+            screen.blit(_ps, (int(cp["x"]) + _shake_ox - _pr,
+                              int(cp["y"]) + _shake_oy - _pr))
 
         # Proximity creature label
         closest_c, closest_dist = None, 55
@@ -1504,25 +1402,15 @@ while running:
             screen.blit(label_text, (lbl_x + pad_x, lbl_y + pad_y))
 
         screen.blit(_shad_trainer, (player_x - 30 + _shake_ox, player_y + 40 + _shake_oy))
-        # Range circle — draw on pre-allocated SRCALPHA surface for proper alpha
-        _range_ring_surf.fill((0, 0, 0, 0))
-        pygame.draw.circle(_range_ring_surf, (*ACCENT, 70), (57, 57), 55, 2)
-        screen.blit(_range_ring_surf, (player_x - 57 + _shake_ox, player_y - 57 + _shake_oy))
+        pygame.draw.circle(screen, (200, 200, 200), (player_x + _shake_ox, player_y + _shake_oy), 55, 1)
 
         _pt = pygame.time.get_ticks() / 1000.0
         _pulse = (_pt * 1.2) % 1.0
         _ring_r = 30 + int(_pulse * 28)
         _ring_alpha = int(210 * (1 - _pulse))
         _pulse_ring_surf.fill((0, 0, 0, 0))
-        # Outer glow layer (wide, faint)
-        _glow_alpha = max(0, _ring_alpha // 4)
-        pygame.draw.circle(_pulse_ring_surf, (*ACCENT, _glow_alpha), (82, 82), _ring_r + 4, 8)
-        # Mid glow layer
-        _mid_alpha = max(0, _ring_alpha // 2)
-        pygame.draw.circle(_pulse_ring_surf, (*ACCENT, _mid_alpha), (82, 82), _ring_r + 1, 5)
-        # Core ring (thick, bright)
-        pygame.draw.circle(_pulse_ring_surf, (*ACCENT, _ring_alpha), (82, 82), _ring_r, 4)
-        screen.blit(_pulse_ring_surf, (player_x - 82 + _shake_ox, player_y - 10 - 82 + _shake_oy))
+        pygame.draw.circle(_pulse_ring_surf, (*ACCENT, _ring_alpha), (62, 62), _ring_r, 2)
+        screen.blit(_pulse_ring_surf, (player_x - 62 + _shake_ox, player_y - 10 - 62 + _shake_oy))
 
         if trainer_images[selected_char]:
             screen.blit(trainer_images[selected_char], (player_x - 28 + _shake_ox, player_y - 45 + _shake_oy))
@@ -1552,29 +1440,6 @@ while running:
             _sp = _streak_pills.get(streak_multiplier)
             if _sp:
                 screen.blit(_sp, (15, 60))
-
-        # HUD creature icons row
-        _hud_nearby_keys = set()
-        for c in creatures:
-            if math.hypot(player_x - c["x"], player_y - c["y"]) < _HUD_NEARBY_RANGE:
-                _hud_nearby_keys.add(c["type"]["image_key"])
-        _hud_caught_set = set(inventory)
-        for _hi, _hct in enumerate(CREATURE_TYPES):
-            _hk = _hct["image_key"]
-            _hx = _HUD_ICON_X + _hi * (_HUD_ICON_SIZE + _HUD_ICON_GAP)
-            _hy = _HUD_ICON_Y
-            _hstate = hud_icon_state(_hk, _hud_nearby_keys, _hud_caught_set)
-            if _hstate == "active":
-                screen.blit(_hud_icons_active[_hk], (_hx, _hy))
-            elif _hstate == "caught":
-                screen.blit(_hud_icons_caught[_hk], (_hx, _hy))
-            else:
-                screen.blit(_hud_icons_dim[_hk], (_hx, _hy))
-            # Gold ring flash on recent catch
-            if _hk in _hud_catch_flash:
-                _hf_alpha = int(255 * (_hud_catch_flash[_hk] / _HUD_CATCH_FLASH_DUR))
-                _hud_flash_ring.set_alpha(_hf_alpha)
-                screen.blit(_hud_flash_ring, (_hx, _hy))
 
         # Timer pill (top-right)
         elapsed = (pygame.time.get_ticks() - start_ticks - _total_paused_ms) / 1000
