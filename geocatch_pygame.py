@@ -360,8 +360,12 @@ _go_saved_hint = tiny_font.render("Press R to play again", True, (180, 180, 190)
 _go_noscore = small_font.render("No score", True, (160, 160, 170))
 _go_noscore_hint = tiny_font.render("Press R to try again", True, (140, 140, 150))
 _go_enter_hint = tiny_font.render("Press ENTER to save", True, (140, 200, 140))
-_go_save_title = tiny_font.render("SAVE YOUR SCORE", True, SCORE_GOLD)
-_go_name_lbl = tiny_font.render("Name (max 5 chars):", True, (160, 160, 170))
+_go_save_title = small_font.render("SAVE YOUR SCORE", True, SCORE_GOLD)
+_go_name_lbl = tiny_font.render("Name (max 5 chars):", True, (180, 180, 190))
+_go_placeholder = small_font.render("ENTER NAME", True, (80, 80, 100))
+# Pre-render submit button surfaces (normal + active)
+_go_submit_txt = tiny_font.render("SUBMIT", True, WHITE)
+_go_submit_txt_dim = tiny_font.render("SUBMIT", True, (100, 100, 120))
 _trainer_fallback = font.render("T", True, WHITE)  # LOW-01: pre-rendered trainer fallback
 
 # Pre-allocated pause overlay surfaces (#10)
@@ -1229,47 +1233,73 @@ while running:
             screen.blit(_go_cache["pb"], (cx - 10 - _go_cache["pb"].get_width(), _stats_y))
             screen.blit(_go_cache["at"], (cx + 10, _stats_y))
 
-        # ── Two-column bottom: leaderboard left, name entry right ──
+        # ── Elevated name entry card (centered above leaderboard) ──
         _bot_y = _stats_y + 24
-        _col_w = 240
-        _col_gap = 40
-        _left_x = cx - _col_gap // 2 - _col_w
-        _right_x = cx + _col_gap // 2
+        _card_w = 320
+        _card_h = 150
+        _card_x = cx - _card_w // 2
+        _card_y = _bot_y
 
-        # Left column: Top 5 leaderboard (cached surfaces)
-        pygame.draw.rect(screen, (22, 24, 42), (_left_x, _bot_y, _col_w, 170), border_radius=10)
-        pygame.draw.rect(screen, (50, 55, 80), (_left_x, _bot_y, _col_w, 170), width=1, border_radius=10)
+        # Shadow layer (offset down-right for depth)
+        pygame.draw.rect(screen, (10, 10, 20), (_card_x + 4, _card_y + 4, _card_w, _card_h), border_radius=14)
+        # Card background
+        pygame.draw.rect(screen, (30, 32, 52), (_card_x, _card_y, _card_w, _card_h), border_radius=14)
+        # Accent top border stripe
+        pygame.draw.rect(screen, ACCENT, (_card_x, _card_y, _card_w, 4), border_radius=2)
+        # Subtle border
+        pygame.draw.rect(screen, (60, 65, 90), (_card_x, _card_y, _card_w, _card_h), width=1, border_radius=14)
+
+        if score_saved:
+            screen.blit(_go_saved, (_card_x + _card_w // 2 - _go_saved.get_width() // 2, _card_y + 40))
+            screen.blit(_go_saved_hint, (_card_x + _card_w // 2 - _go_saved_hint.get_width() // 2, _card_y + 75))
+        elif score == 0:
+            screen.blit(_go_noscore, (_card_x + _card_w // 2 - _go_noscore.get_width() // 2, _card_y + 40))
+            screen.blit(_go_noscore_hint, (_card_x + _card_w // 2 - _go_noscore_hint.get_width() // 2, _card_y + 75))
+        else:
+            # Title
+            screen.blit(_go_save_title, (_card_x + _card_w // 2 - _go_save_title.get_width() // 2, _card_y + 14))
+            screen.blit(_go_name_lbl, (_card_x + _card_w // 2 - _go_name_lbl.get_width() // 2, _card_y + 44))
+            # Prominent input field
+            _pill_w, _pill_h = 200, 42
+            _pill_x = _card_x + 16
+            _pill_y = _card_y + 66
+            pygame.draw.rect(screen, (20, 22, 38), (_pill_x, _pill_y, _pill_w, _pill_h), border_radius=10)
+            _input_border = ACCENT if len(name_input) > 0 else (80, 85, 110)
+            pygame.draw.rect(screen, _input_border, (_pill_x, _pill_y, _pill_w, _pill_h), width=2, border_radius=10)
+            if len(name_input) == 0:
+                # Placeholder text
+                screen.blit(_go_placeholder, (_pill_x + _pill_w // 2 - _go_placeholder.get_width() // 2, _pill_y + 9))
+            else:
+                cursor = "" if len(name_input) >= 5 else ("|" if int(_ticks * 2) % 2 == 0 else " ")
+                _name_surf = small_font.render(f"{name_input}{cursor}", True, WHITE)
+                screen.blit(_name_surf, (_pill_x + _pill_w // 2 - _name_surf.get_width() // 2, _pill_y + 9))
+            # Submit button
+            _btn_w, _btn_h = 80, 42
+            _btn_x = _card_x + _card_w - _btn_w - 16
+            _btn_y = _pill_y
+            _btn_active = len(name_input) > 0
+            _btn_bg = ACCENT if _btn_active else (50, 52, 70)
+            pygame.draw.rect(screen, _btn_bg, (_btn_x, _btn_y, _btn_w, _btn_h), border_radius=10)
+            if _btn_active:
+                pygame.draw.rect(screen, (255, 140, 90), (_btn_x, _btn_y, _btn_w, _btn_h), width=1, border_radius=10)
+            _btn_txt = _go_submit_txt if _btn_active else _go_submit_txt_dim
+            screen.blit(_btn_txt, (_btn_x + _btn_w // 2 - _btn_txt.get_width() // 2, _btn_y + 12))
+            if len(name_input) > 0:
+                screen.blit(_go_enter_hint, (_card_x + _card_w // 2 - _go_enter_hint.get_width() // 2, _card_y + 118))
+
+        # ── Leaderboard (centered below name entry card) ──
+        _lb_y = _card_y + _card_h + 12
+        _lb_w = 280
+        _lb_x = cx - _lb_w // 2
+        pygame.draw.rect(screen, (22, 24, 42), (_lb_x, _lb_y, _lb_w, 160), border_radius=10)
+        pygame.draw.rect(screen, (50, 55, 80), (_lb_x, _lb_y, _lb_w, 160), width=1, border_radius=10)
         if _go_cache:
-            screen.blit(_go_cache["lb_title"], (_left_x + _col_w // 2 - _go_cache["lb_title"].get_width() // 2, _bot_y + 8))
+            screen.blit(_go_cache["lb_title"], (_lb_x + _lb_w // 2 - _go_cache["lb_title"].get_width() // 2, _lb_y + 8))
             if _go_cache["lb_lines"]:
                 for i, _line in enumerate(_go_cache["lb_lines"]):
-                    screen.blit(_line, (_left_x + 20, _bot_y + 30 + i * 26))
+                    screen.blit(_line, (_lb_x + 20, _lb_y + 30 + i * 26))
             else:
-                screen.blit(_go_no_scores, (_left_x + _col_w // 2 - _go_no_scores.get_width() // 2, _bot_y + 60))
-
-        # Right column: Name entry
-        pygame.draw.rect(screen, (22, 24, 42), (_right_x, _bot_y, _col_w, 170), border_radius=10)
-        pygame.draw.rect(screen, (50, 55, 80), (_right_x, _bot_y, _col_w, 170), width=1, border_radius=10)
-        if score_saved:
-            screen.blit(_go_saved, (_right_x + _col_w // 2 - _go_saved.get_width() // 2, _bot_y + 50))
-            screen.blit(_go_saved_hint, (_right_x + _col_w // 2 - _go_saved_hint.get_width() // 2, _bot_y + 85))
-        elif score == 0:
-            screen.blit(_go_noscore, (_right_x + _col_w // 2 - _go_noscore.get_width() // 2, _bot_y + 55))
-            screen.blit(_go_noscore_hint, (_right_x + _col_w // 2 - _go_noscore_hint.get_width() // 2, _bot_y + 85))
-        else:
-            screen.blit(_go_save_title, (_right_x + _col_w // 2 - _go_save_title.get_width() // 2, _bot_y + 12))
-            screen.blit(_go_name_lbl, (_right_x + _col_w // 2 - _go_name_lbl.get_width() // 2, _bot_y + 40))
-            # Pill input
-            _pill_w, _pill_h = 180, 38
-            _pill_x = _right_x + _col_w // 2 - _pill_w // 2
-            _pill_y = _bot_y + 62
-            pygame.draw.rect(screen, (36, 38, 56), (_pill_x, _pill_y, _pill_w, _pill_h), border_radius=18)
-            pygame.draw.rect(screen, ACCENT, (_pill_x, _pill_y, _pill_w, _pill_h), width=2, border_radius=18)
-            cursor = "" if len(name_input) >= 5 else ("|" if int(_ticks * 2) % 2 == 0 else " ")
-            _name_surf = small_font.render(f"{name_input}{cursor}", True, WHITE)
-            screen.blit(_name_surf, (_pill_x + _pill_w // 2 - _name_surf.get_width() // 2, _pill_y + 7))
-            if len(name_input) > 0:
-                screen.blit(_go_enter_hint, (_right_x + _col_w // 2 - _go_enter_hint.get_width() // 2, _bot_y + 108))
+                screen.blit(_go_no_scores, (_lb_x + _lb_w // 2 - _go_no_scores.get_width() // 2, _lb_y + 60))
 
         # ── Always-visible navigation ──
         if _go_cache:
