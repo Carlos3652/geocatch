@@ -120,6 +120,9 @@ streak_multiplier = 1.0
 # #6: Catch pop animations
 catch_animations = []
 
+# Catch particle burst effect
+catch_particles = []
+
 # #8: Screen shake
 shake_frames = 0
 shake_magnitude = 0
@@ -572,6 +575,7 @@ def reset_game():
     catch_streak = 0
     streak_multiplier = 1.0
     catch_animations = []
+    catch_particles = []
     shake_frames = 0
     shake_magnitude = 0
     _total_paused_ms = 0
@@ -774,6 +778,25 @@ while running:
                                 "timer": 0.15,
                                 "bob": c.get("_bob", 0),
                             })
+                            # Catch particle burst — spawn 8-12 colored dots
+                            _pc = CREATURE_COLORS.get(caught["name"], ACCENT)
+                            for _pi in range(random.randint(8, 12)):
+                                _angle = random.uniform(0, 2 * math.pi)
+                                _speed = random.uniform(80, 180)
+                                catch_particles.append({
+                                    "x": float(c["x"]),
+                                    "y": float(c["y"]),
+                                    "vx": math.cos(_angle) * _speed,
+                                    "vy": math.sin(_angle) * _speed,
+                                    "life": 0.5,
+                                    "max_life": 0.5,
+                                    "color": (
+                                        min(255, _pc[0] + random.randint(-30, 30)),
+                                        min(255, _pc[1] + random.randint(-30, 30)),
+                                        min(255, _pc[2] + random.randint(-30, 30)),
+                                    ),
+                                    "r": random.randint(2, 5),
+                                })
                             _play(_snd_catch)  # #1
                             del creatures[i]
                             break  # one catch per press
@@ -894,6 +917,13 @@ while running:
         for ca in catch_animations:
             ca["timer"] -= dt
         catch_animations[:] = [ca for ca in catch_animations if ca["timer"] > 0]
+
+        # Update catch particles
+        for cp in catch_particles:
+            cp["x"] += cp["vx"] * dt
+            cp["y"] += cp["vy"] * dt
+            cp["life"] -= dt
+        catch_particles[:] = [cp for cp in catch_particles if cp["life"] > 0]
 
         # #8: Decay screen shake
         if shake_frames > 0:
@@ -1334,6 +1364,19 @@ while running:
                     scaled = pygame.transform.smoothscale(_stk, (size, size))
                     screen.blit(scaled, (int(ca["x"]) + _shake_ox - size // 2,
                                          int(ca["y"]) + _shake_oy - size // 2 + ca.get("bob", 0)))
+
+        # Draw catch particles
+        for cp in catch_particles:
+            _frac = cp["life"] / cp["max_life"]
+            _alpha = int(255 * _frac)
+            _pr = max(1, int(cp["r"] * _frac))
+            _pcol = (min(255, max(0, cp["color"][0])),
+                     min(255, max(0, cp["color"][1])),
+                     min(255, max(0, cp["color"][2])))
+            _ps = pygame.Surface((_pr * 2, _pr * 2), pygame.SRCALPHA)
+            pygame.draw.circle(_ps, (*_pcol, _alpha), (_pr, _pr), _pr)
+            screen.blit(_ps, (int(cp["x"]) + _shake_ox - _pr,
+                              int(cp["y"]) + _shake_oy - _pr))
 
         # Proximity creature label
         closest_c, closest_dist = None, 55
