@@ -127,6 +127,11 @@ catch_particles = []
 shake_frames = 0
 shake_magnitude = 0
 
+# #15: Streak milestone flash
+_streak_flash_timer = 0.0
+_STREAK_FLASH_DUR = 0.3
+_STREAK_MILESTONES = {3, 5, 10}
+
 # #10: Pause
 _total_paused_ms = 0
 _pause_start_ms = 0
@@ -327,6 +332,12 @@ _go_bg_pulse_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 # Pre-allocated bomb flash surface
 _bomb_flash_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 _bomb_flash_surf.fill((255, 0, 0, 26))
+
+# #15: Pre-allocated streak flash surface — gold border, colorkey for set_alpha() compat
+_STREAK_FLASH_BORDER = 6
+_streak_flash_surf = pygame.Surface((WIDTH, HEIGHT))
+_streak_flash_surf.set_colorkey((0, 0, 0))
+pygame.draw.rect(_streak_flash_surf, SCORE_GOLD, (0, 0, WIDTH, HEIGHT), width=_STREAK_FLASH_BORDER, border_radius=4)
 
 # Pre-allocated fade sticker surface (#9) + alpha modulation surface
 _fade_sticker_surf = pygame.Surface((_STICKER_SIZE, _STICKER_SIZE), pygame.SRCALPHA)
@@ -553,7 +564,8 @@ def spawn_creatures(n=8):
 def reset_game():
     global score, inventory, player_x, player_y, start_ticks, creatures, bombs, float_texts
     global bomb_flash_frames, bomb_cooldown, score_saved, is_new_high_score, name_input, game_time
-    global catch_streak, streak_multiplier, catch_animations, shake_frames, shake_magnitude
+    global catch_streak, streak_multiplier, catch_animations, catch_particles, shake_frames, shake_magnitude
+    global _streak_flash_timer
     global _total_paused_ms, _pause_start_ms, _escalation_triggered, _bob_speed
     global _spawn_delay_timer, _last_tick_second
     global _go_cache, _go_fireworks, _go_caught_keys, _cs_popup
@@ -578,6 +590,7 @@ def reset_game():
     catch_particles = []
     shake_frames = 0
     shake_magnitude = 0
+    _streak_flash_timer = 0.0
     _total_paused_ms = 0
     _pause_start_ms = 0
     _escalation_triggered = False
@@ -764,6 +777,9 @@ while running:
                                 streak_multiplier = 2.0
                             elif catch_streak >= 3:
                                 streak_multiplier = 1.5
+                            # #15: Streak milestone flash
+                            if catch_streak in _STREAK_MILESTONES:
+                                _streak_flash_timer = _STREAK_FLASH_DUR
                             base_pts = caught["points"]
                             pts = int(base_pts * streak_multiplier)
                             score += pts
@@ -924,6 +940,10 @@ while running:
             cp["y"] += cp["vy"] * dt
             cp["life"] -= dt
         catch_particles[:] = [cp for cp in catch_particles if cp["life"] > 0]
+
+        # #15: Decay streak milestone flash
+        if _streak_flash_timer > 0:
+            _streak_flash_timer = max(0, _streak_flash_timer - dt)
 
         # #8: Decay screen shake
         if shake_frames > 0:
@@ -1420,6 +1440,12 @@ while running:
         if bomb_flash_frames > 0:
             screen.blit(_bomb_flash_surf, (0, 0))
             bomb_flash_frames -= 1
+
+        # #15: Streak milestone gold border flash
+        if _streak_flash_timer > 0:
+            _sf_alpha = int(255 * (_streak_flash_timer / _STREAK_FLASH_DUR))
+            _streak_flash_surf.set_alpha(_sf_alpha)
+            screen.blit(_streak_flash_surf, (0, 0))
 
         for ft in float_texts:
             progress = 1.0 - ft["timer"]
