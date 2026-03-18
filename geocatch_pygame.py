@@ -390,6 +390,12 @@ for _ct in CREATURE_TYPES:
 _phantom_glow_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
 _pulse_ring_surf = pygame.Surface((RING_SURFACE_SIZE, RING_SURFACE_SIZE), pygame.SRCALPHA)
 
+# Pre-baked static range ring (CRIT-02: constant dimensions, drawn once at startup)
+_RANGE_RING_RADIUS = 55
+_range_ring_surf = pygame.Surface((_RANGE_RING_RADIUS * 2 + 2, _RANGE_RING_RADIUS * 2 + 2), pygame.SRCALPHA)
+pygame.draw.circle(_range_ring_surf, (200, 200, 200, 255),
+                   (_RANGE_RING_RADIUS + 1, _RANGE_RING_RADIUS + 1), _RANGE_RING_RADIUS, 1)
+
 # Pre-allocated game-over surfaces — CRIT-02: non-SRCALPHA so set_alpha() works
 _go_flash_surf = pygame.Surface((WIDTH, HEIGHT))
 _go_flash_surf.fill((255, 140, 0))
@@ -1330,8 +1336,7 @@ while running:
                 if _cs_trainer_big[i]:
                     screen.blit(_cs_trainer_big[i], (cur_x + cw // 2 - 45, card_y + 12))
                 else:
-                    fb = font.render("T", True, WHITE)
-                    screen.blit(fb, (cur_x + cw // 2 - fb.get_width() // 2, card_y + 40))
+                    screen.blit(_trainer_fallback, (cur_x + cw // 2 - _trainer_fallback.get_width() // 2, card_y + 40))
                 lbl = _cs_trainer_labels[i]
                 screen.blit(lbl, (cur_x + cw // 2 - lbl.get_width() // 2, card_y + 130))
                 fl = _cs_flavor_texts[i]
@@ -1345,8 +1350,7 @@ while running:
                 if trainer_images[i]:
                     screen.blit(trainer_images[i], (cur_x + cw // 2 - 35, card_y + 10))
                 else:
-                    fb = font.render("T", True, WHITE)
-                    screen.blit(fb, (cur_x + cw // 2 - fb.get_width() // 2, card_y + 30))
+                    screen.blit(_trainer_fallback, (cur_x + cw // 2 - _trainer_fallback.get_width() // 2, card_y + 30))
                 lbl = _cs_trainer_labels[i]
                 screen.blit(lbl, (cur_x + cw // 2 - lbl.get_width() // 2, card_y + 108))
 
@@ -1693,19 +1697,8 @@ while running:
             screen.blit(label_text, (lbl_x + pad_x, lbl_y + pad_y))
 
         screen.blit(_shad_trainer, (player_x - 30 + _shake_ox, player_y + 40 + _shake_oy))
-        # Static range ring — dark shadow + ACCENT-colored on SRCALPHA for contrast
-        _range_pad = RANGE_RING_SHADOW_WIDTH // 2 + 4
-        _range_surf = pygame.Surface((RANGE_RING_RADIUS * 2 + _range_pad * 2,
-                                      RANGE_RING_RADIUS * 2 + _range_pad * 2), pygame.SRCALPHA)
-        _range_cx = RANGE_RING_RADIUS + _range_pad
-        # Shadow layer for contrast on light backgrounds
-        pygame.draw.circle(_range_surf, (0, 0, 0, RANGE_RING_SHADOW_ALPHA),
-                           (_range_cx, _range_cx), RANGE_RING_RADIUS, RANGE_RING_SHADOW_WIDTH)
-        # Accent layer
-        pygame.draw.circle(_range_surf, (*ACCENT, RANGE_RING_ALPHA),
-                           (_range_cx, _range_cx), RANGE_RING_RADIUS, RANGE_RING_WIDTH)
-        screen.blit(_range_surf, (player_x - _range_cx + _shake_ox,
-                                  player_y - _range_cx + _shake_oy))
+        screen.blit(_range_ring_surf, (player_x + _shake_ox - _RANGE_RING_RADIUS - 1,
+                                       player_y + _shake_oy - _RANGE_RING_RADIUS - 1))
 
         # Pulsing catch ring — four-layer: shadow → outer glow → mid → core
         _rp = compute_ring_params(pygame.time.get_ticks())
@@ -1729,7 +1722,7 @@ while running:
         if trainer_images[selected_char]:
             screen.blit(trainer_images[selected_char], (player_x - 28 + _shake_ox, player_y - 45 + _shake_oy))
         else:
-            screen.blit(font.render("T", True, WHITE), (player_x - 35 + _shake_ox, player_y - 45 + _shake_oy))
+            screen.blit(_trainer_fallback, (player_x - 35 + _shake_ox, player_y - 45 + _shake_oy))
 
         if bomb_flash_frames > 0:
             screen.blit(_bomb_flash_surf, (0, 0))
