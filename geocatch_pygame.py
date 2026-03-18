@@ -590,6 +590,12 @@ _go_save_title = tiny_font.render("SAVE YOUR SCORE", True, SCORE_GOLD)
 _go_name_lbl = tiny_font.render("Name (max 5 chars):", True, (160, 160, 170))
 _trainer_fallback = font.render("T", True, WHITE)  # LOW-01: pre-rendered trainer fallback
 
+# HIGH-03: Pre-rendered game_over card text (placeholder, submit button, hint)
+_go_placeholder = tiny_font.render("Your name", True, (100, 100, 120))
+_go_submit_active = tiny_font.render("SUBMIT", True, WHITE)
+_go_submit_inactive = tiny_font.render("SUBMIT", True, (100, 100, 120))
+_go_enter_click_hint = tiny_font.render("ENTER or click SUBMIT", True, (140, 200, 140))
+
 # Pre-allocated pause overlay surfaces (#10)
 _pause_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 _pause_overlay.fill((0, 0, 0, 160))
@@ -634,6 +640,9 @@ for _tx, _ty in trees:
 # Pond centers for zone-based spawning (#7)
 _POND_CENTERS = [(407, 388), (384, 519)]
 
+# HIGH-04: Pre-rendered Disc Golf label (was inside draw_world)
+_disc_golf_label = tiny_font.render("Disc Golf", True, (70, 140, 70))
+
 def draw_world(surf):
     """Draw the neighbourhood-themed game world onto surf."""
     surf.fill(GRASS)
@@ -676,8 +685,7 @@ def draw_world(surf):
         pygame.draw.rect(surf, HOUSE_COLOR, (749, _hy, 20, 17))
     pygame.draw.circle(surf, (76, 175, 80), (555, 252), 9)
     pygame.draw.circle(surf, WHITE, (555, 252), 9, 2)
-    _dg = tiny_font.render("Disc Golf", True, (70, 140, 70))
-    surf.blit(_dg, (530, 265))
+    surf.blit(_disc_golf_label, (530, 265))
     for td in _tree_data:
         tx, ty = td["pos"]
         cx, cy = tx + 15, ty + 20
@@ -1524,8 +1532,7 @@ while running:
             pygame.draw.rect(screen, (36, 38, 56), (_pill_x, _pill_y, _pill_w, _pill_h), border_radius=18)
             pygame.draw.rect(screen, _border_col, (_pill_x, _pill_y, _pill_w, _pill_h), width=2, border_radius=18)
             if len(name_input) == 0:
-                _ph_surf = tiny_font.render("Your name", True, (100, 100, 120))
-                screen.blit(_ph_surf, (_pill_x + 14, _pill_y + 13))
+                screen.blit(_go_placeholder, (_pill_x + 14, _pill_y + 13))
             else:
                 cursor = "" if len(name_input) >= 5 else ("|" if int(_ticks * 2) % 2 == 0 else " ")
                 _name_surf = small_font.render(f"{name_input}{cursor}", True, WHITE)
@@ -1536,13 +1543,12 @@ while running:
             pygame.draw.rect(screen, _btn_bg, (_btn_x, _btn_y, _btn_w, _btn_h), border_radius=18)
             if _btn_active:
                 pygame.draw.rect(screen, (255, 140, 80), (_btn_x, _btn_y, _btn_w, _btn_h), width=2, border_radius=18)
-            _btn_text = tiny_font.render("SUBMIT", True, WHITE if _btn_active else (100, 100, 120))
+            _btn_text = _go_submit_active if _btn_active else _go_submit_inactive
             screen.blit(_btn_text, (_btn_x + _btn_w // 2 - _btn_text.get_width() // 2, _btn_y + 13))
             _go_submit_rect.update(_btn_x, _btn_y, _btn_w, _btn_h)
             # Hint text
             if len(name_input) > 0:
-                _hint_surf = tiny_font.render("ENTER or click SUBMIT", True, (140, 200, 140))
-                screen.blit(_hint_surf, (_card_x + _card_w // 2 - _hint_surf.get_width() // 2, _card_y + 118))
+                screen.blit(_go_enter_click_hint, (_card_x + _card_w // 2 - _go_enter_click_hint.get_width() // 2, _card_y + 118))
 
         # ── Leaderboard below card (centered, clamped to screen) ──
         _lb_x, _lb_y, _lb_w = compute_leaderboard_rect(cx, _card_y, _card_h)
