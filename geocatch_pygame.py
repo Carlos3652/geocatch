@@ -783,7 +783,7 @@ def reset_game():
     global _streak_flash_timer
     global _total_paused_ms, _pause_start_ms, _escalation_triggered, _bob_speed
     global _spawn_delay_timer, _last_tick_second
-    global _go_cache, _go_fireworks, _go_caught_keys, _cs_popup
+    global _go_cache, _go_anim_done, _go_fireworks, _go_caught_keys, _cs_popup
     score = 0
     game_time = 60
     inventory = []
@@ -813,11 +813,17 @@ def reset_game():
     _spawn_delay_timer = 0.0
     _last_tick_second = -1
     _go_cache = None
+    _go_anim_done = False
     _go_fireworks = []
     _go_caught_keys = set()
     _cs_popup = None
     _hud_catch_flash.clear()
     _hud_nearby_keys.clear()
+    # Clear cached score/time surfaces to prevent stale blits
+    if hasattr(reset_game, '_sc_cache'):
+        del reset_game._sc_cache
+    if hasattr(reset_game, '_tm_cache'):
+        del reset_game._tm_cache
 
 
 # ── Card Spotlight start screen surfaces ──────────────────────────────────────
