@@ -3,19 +3,17 @@
 Validates that:
 - _go_anim_done is set to False after reset_game()
 - reset_game._sc_cache and _tm_cache are deleted after reset_game()
+
+NOTE: We do NOT call pygame.init() or pygame.display in this file.
+The game module handles its own initialization at import time;
+we only set headless env-vars so no real window is created.
 """
 import os
 import sys
 
-# Headless drivers BEFORE importing pygame
-os.environ["SDL_VIDEODRIVER"] = "dummy"
-os.environ["SDL_AUDIODRIVER"] = "dummy"
-
-sys.modules.pop("pygame", None)
-import pygame
-
-pygame.init()
-pygame.display.set_mode((1, 1))
+# Headless drivers BEFORE importing pygame / the game module
+os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 sys.path.insert(0, os.path.dirname(__file__))
 import geocatch_pygame as gm
@@ -71,3 +69,35 @@ class TestCacheAttrsCleared:
         gm.reset_game()
         assert not hasattr(gm.reset_game, '_sc_cache')
         assert not hasattr(gm.reset_game, '_tm_cache')
+
+
+class TestResetGameEdgeCases:
+    """Additional edge-case coverage for reset_game()."""
+
+    def test_go_anim_done_reset_after_multiple_toggles(self):
+        """_go_anim_done is False even after toggling multiple times."""
+        gm._go_anim_done = True
+        gm._go_anim_done = False
+        gm._go_anim_done = True
+        gm.reset_game()
+        assert gm._go_anim_done is False
+
+    def test_cache_with_none_value_still_removed(self):
+        """Cache attrs set to None are still removed."""
+        gm.reset_game._sc_cache = None
+        gm.reset_game._tm_cache = None
+        gm.reset_game()
+        assert not hasattr(gm.reset_game, '_sc_cache')
+        assert not hasattr(gm.reset_game, '_tm_cache')
+
+    def test_score_resets_to_zero(self):
+        """score should be 0 after reset_game() (sanity check)."""
+        gm.score = 999
+        gm.reset_game()
+        assert gm.score == 0
+
+    def test_go_cache_resets_to_none(self):
+        """_go_cache should be None after reset_game()."""
+        gm._go_cache = "stale"
+        gm.reset_game()
+        assert gm._go_cache is None
