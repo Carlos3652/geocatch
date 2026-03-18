@@ -1759,8 +1759,8 @@ while running:
 
         # #15: Streak milestone gold border flash
         if _streak_flash_timer > 0:
-            _sf_alpha = int(255 * (_streak_flash_timer / _STREAK_FLASH_DUR))
-            _streak_flash_surf.set_alpha(_sf_alpha)
+            sf_alpha = int(255 * (_streak_flash_timer / _STREAK_FLASH_DUR))
+            _streak_flash_surf.set_alpha(sf_alpha)
             screen.blit(_streak_flash_surf, (0, 0))
 
         for ft in float_texts:

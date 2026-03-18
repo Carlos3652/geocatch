@@ -31,23 +31,34 @@ def decay_flash_timer(timer, dt):
     return max(0, timer - dt)
 
 
-def simulate_catch_streak(catches, reset_at=None):
+def simulate_catch_streak(catches, reset_at=None, dt=1 / 60):
     """Simulate a series of catches, optionally resetting at a given index.
 
-    Returns a list of booleans indicating whether each catch triggered a flash.
+    Returns a list of dicts with keys:
+        - triggered: bool — whether this catch triggered a flash
+        - streak: int — streak count after this catch
+        - flash_timer: float — flash timer value after processing this catch
+
     If reset_at is provided, the streak resets to 0 at that index (bomb hit).
+    Each step decays the flash timer by *dt* before processing the catch.
     """
     streak = 0
     flash_timer = 0.0
     results = []
     for i in range(catches):
+        # Decay flash timer each step (simulates one frame between catches)
+        flash_timer = decay_flash_timer(flash_timer, dt)
         if reset_at is not None and i == reset_at:
             streak = 0
         streak += 1
         triggered = should_trigger_flash(streak)
         if triggered:
             flash_timer = STREAK_FLASH_DUR
-        results.append(triggered)
+        results.append({
+            "triggered": triggered,
+            "streak": streak,
+            "flash_timer": flash_timer,
+        })
     return results
 
 
@@ -216,25 +227,25 @@ class TestStreakResetIntegration:
         results = simulate_catch_streak(6, reset_at=2)
         # catches: 1,2 -> reset at index 2 -> 1,2,3,4
         # Streak 3 after reset (index 4) should trigger flash
-        assert results[4] is True
+        assert results[4]["triggered"] is True
 
     def test_no_flash_before_first_milestone(self):
         """Catches 1 and 2 should never trigger flash."""
         results = simulate_catch_streak(2)
-        assert results == [False, False]
+        assert all(r["triggered"] is False for r in results)
 
     def test_consecutive_milestones_sequence(self):
         """Milestones 3, 5, 10 should all trigger in a single streak."""
         results = simulate_catch_streak(10)
-        assert results[2] is True   # streak 3
-        assert results[4] is True   # streak 5
-        assert results[9] is True   # streak 10
+        assert results[2]["triggered"] is True   # streak 3
+        assert results[4]["triggered"] is True   # streak 5
+        assert results[9]["triggered"] is True   # streak 10
 
     def test_no_flash_between_milestones(self):
         """Non-milestone catches should not trigger a flash."""
         results = simulate_catch_streak(10)
         for i in [0, 1, 3, 5, 6, 7, 8]:  # streaks 1,2,4,6,7,8,9
-            assert results[i] is False, f"Unexpected flash at catch {i+1}"
+            assert results[i]["triggered"] is False, f"Unexpected flash at catch {i+1}"
 
     def test_flash_timer_resets_on_new_milestone(self):
         """Triggering a second milestone should restart the timer."""
@@ -246,3 +257,49 @@ class TestStreakResetIntegration:
         # New milestone resets timer
         timer = STREAK_FLASH_DUR
         assert compute_flash_alpha(timer) == 255
+
+    def test_rich_state_includes_streak_count(self):
+        """Each result should report the correct streak count."""
+        results = simulate_catch_streak(5)
+        assert [r["streak"] for r in results] == [1, 2, 3, 4, 5]
+
+    def test_rich_state_streak_resets_correctly(self):
+        """Streak count should reset to 1 after bomb hit at reset_at."""
+        results = simulate_catch_streak(5, reset_at=2)
+        # index 0: streak 1, index 1: streak 2,
+        # index 2: reset->0 then +1 = streak 1,
+        # index 3: streak 2, index 4: streak 3
+        assert [r["streak"] for r in results] == [1, 2, 1, 2, 3]
+
+    def test_flash_timer_nonzero_on_trigger(self):
+        """When a flash triggers, timer should be set to STREAK_FLASH_DUR."""
+        results = simulate_catch_streak(3)
+        assert results[2]["triggered"] is True
+        assert results[2]["flash_timer"] == STREAK_FLASH_DUR
+
+    def test_flash_timer_decays_between_catches(self):
+        """Timer should decay between catches that don't trigger."""
+        results = simulate_catch_streak(5)
+        # After catch 3 triggers, catch 4 decays it by dt
+        assert results[3]["flash_timer"] < STREAK_FLASH_DUR
+        assert results[3]["flash_timer"] > 0
+
+    def test_bomb_hit_during_active_flash_preserves_timer_decay(self):
+        """Bomb hit during an active flash should not zero the timer;
+        it only resets the streak.  The flash timer keeps decaying normally."""
+        # Trigger flash at catch 3 (streak milestone), then bomb at index 3
+        results = simulate_catch_streak(5, reset_at=3)
+        # index 2: streak 3 -> flash triggers, timer = 0.3
+        assert results[2]["triggered"] is True
+        # index 3: bomb resets streak, but flash_timer only decayed by dt
+        assert results[3]["flash_timer"] > 0, "Flash timer should still be active after bomb"
+        assert results[3]["streak"] == 1  # streak reset then +1
+
+    def test_bomb_hit_during_active_flash_timer_value(self):
+        """After bomb hit during active flash, timer should equal FLASH_DUR - dt."""
+        dt = 1 / 60
+        results = simulate_catch_streak(4, reset_at=3, dt=dt)
+        # index 2 triggers flash (streak 3), timer = STREAK_FLASH_DUR
+        # index 3: decay by dt, bomb resets streak, no new trigger
+        expected_timer = STREAK_FLASH_DUR - dt
+        assert abs(results[3]["flash_timer"] - expected_timer) < 1e-10
