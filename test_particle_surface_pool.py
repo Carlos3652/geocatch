@@ -81,7 +81,7 @@ class TestParticleSurfacePool:
         import pygame
         pool = build_particle_surface_pool()
         for r in range(1, _PARTICLE_MAX_RADIUS + 1):
-            assert pool[r].flags & pygame.SRCALPHA
+            assert pool[r].get_flags() & pygame.SRCALPHA
 
     def test_same_surface_returned_for_same_radius(self):
         pool = build_particle_surface_pool()
@@ -130,11 +130,16 @@ class TestParticleSurfacePool:
             assert dr <= _PARTICLE_MAX_RADIUS
 
     def test_fill_clears_surface(self):
-        """Pool reuse requires fill((0,0,0,0)) — verify the stub records it."""
+        """Pool reuse requires fill((0,0,0,0)) — verify surface is cleared."""
+        import pygame
         pool = build_particle_surface_pool()
         surf, _ = get_particle_surface(pool, 2)
+        # Draw something visible, then fill with transparent
+        surf.fill((255, 0, 0, 255))
         surf.fill((0, 0, 0, 0))
-        assert surf._filled
+        # After clearing, all pixels should be fully transparent
+        color = surf.get_at((0, 0))
+        assert color.a == 0, f"Expected transparent after fill, got alpha={color.a}"
 
     def test_no_allocation_during_burst(self):
         """Simulate a 12-particle burst; pool size must not grow."""
