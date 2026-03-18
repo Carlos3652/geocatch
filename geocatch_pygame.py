@@ -332,6 +332,31 @@ for _ct in CREATURE_TYPES:
     _st_surf.blit(_init_surf, (_st_cx + 10, _st_cy + 10))
     _sticker_surfs[_ct["image_key"]] = _st_surf
 
+# Pre-baked catch animation frames (expand-implode) – 12 per image_key
+_CATCH_ANIM_N = 12
+_catch_anim_frames = {}
+for _ct in CREATURE_TYPES:
+    _src = _sticker_surfs.get(_ct["image_key"])
+    if _src is None:
+        continue
+    _frames = []
+    _expand_dur = 0.08
+    _total_dur = 0.24
+    for _fi in range(_CATCH_ANIM_N):
+        _progress = _fi / (_CATCH_ANIM_N - 1) if _CATCH_ANIM_N > 1 else 1.0
+        _elapsed = _progress * _total_dur
+        if _elapsed < _expand_dur:
+            _ft = _elapsed / _expand_dur
+            _fease = 1.0 - (1.0 - _ft) ** 2
+            _fscale = 1.0 + 0.4 * _fease
+        else:
+            _ft = min((_elapsed - _expand_dur) / (_total_dur - _expand_dur), 1.0)
+            _fease = _ft * _ft
+            _fscale = 1.4 * (1.0 - _fease)
+        _fsize = max(1, int(_STICKER_SIZE * _fscale))
+        _frames.append(pygame.transform.smoothscale(_src, (_fsize, _fsize)))
+    _catch_anim_frames[_ct["image_key"]] = _frames
+
 # Grey sticker surfaces for uncaught creatures on end screen
 _grey_sticker_surfs = {}
 for _ct in CREATURE_TYPES:
@@ -1644,28 +1669,20 @@ while running:
             else:
                 pygame.draw.circle(screen, WHITE, (_cx, _cy + bob), 25)
 
-        # #6: Draw catch pop animations (expand-implode with easing)
+        # #6: Draw catch pop animations (expand-implode with pre-baked frames)
         for ca in catch_animations:
+            _ca_frames = _catch_anim_frames.get(ca["image_key"])
+            if not _ca_frames:
+                continue
             _ca_max = ca["max_timer"]  # 0.24
             _ca_elapsed = _ca_max - ca["timer"]
-            _ca_expand_dur = 0.08
-            if _ca_elapsed < _ca_expand_dur:
-                # Expand phase: 1.0 -> 1.4 with ease-out (decelerate)
-                _ca_t = _ca_elapsed / _ca_expand_dur
-                _ca_ease = 1.0 - (1.0 - _ca_t) ** 2
-                scale = 1.0 + 0.4 * _ca_ease
-            else:
-                # Implode phase: 1.4 -> 0 with ease-in (accelerate)
-                _ca_t = min((_ca_elapsed - _ca_expand_dur) / (_ca_max - _ca_expand_dur), 1.0)
-                _ca_ease = _ca_t * _ca_t
-                scale = 1.4 * (1.0 - _ca_ease)
-            if scale > 0:
-                size = max(1, int(_STICKER_SIZE * scale))
-                _stk = _sticker_surfs.get(ca["image_key"])
-                if _stk:
-                    scaled = pygame.transform.smoothscale(_stk, (size, size))
-                    screen.blit(scaled, (int(ca["x"]) + _shake_ox - size // 2,
-                                         int(ca["y"]) + _shake_oy - size // 2 + ca.get("bob", 0)))
+            _ca_progress = min(_ca_elapsed / _ca_max, 1.0) if _ca_max > 0 else 1.0
+            _ca_idx = min(len(_ca_frames) - 1, int(_ca_progress * len(_ca_frames)))
+            _ca_surf = _ca_frames[_ca_idx]
+            _ca_size = _ca_surf.get_width()
+            if _ca_size > 0:
+                screen.blit(_ca_surf, (int(ca["x"]) + _shake_ox - _ca_size // 2,
+                                       int(ca["y"]) + _shake_oy - _ca_size // 2 + ca.get("bob", 0)))
 
         # Draw catch particles
         for cp in catch_particles:
