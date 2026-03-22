@@ -10,8 +10,9 @@ import sys
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 os.environ["SDL_AUDIODRIVER"] = "dummy"
 
-# Remove any stub pygame injected by other test modules (e.g. test_particle_surface_pool)
-sys.modules.pop("pygame", None)
+# Only pop pygame if it's a stub/mock; real pygame is safe to reuse
+if "pygame" not in sys.modules or not hasattr(sys.modules["pygame"], "init"):
+    sys.modules.pop("pygame", None)
 import pygame
 
 # Initialize pygame (headless) so Surface operations work
