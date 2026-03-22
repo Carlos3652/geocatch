@@ -13,16 +13,31 @@ _stub_pygame = types.ModuleType("pygame")
 _stub_pygame.SRCALPHA = 0x00010000
 _stub_pygame.QUIT = 256
 
+class _StubColor:
+    """Minimal stand-in for pygame.Color returned by get_at()."""
+    def __init__(self, r, g, b, a):
+        self.r, self.g, self.b, self.a = r, g, b, a
+    def __iter__(self):
+        return iter((self.r, self.g, self.b, self.a))
+
 class _StubSurface:
     """Lightweight stand-in for pygame.Surface."""
     def __init__(self, size, flags=0):
         self.size = size
         self.flags = flags
-        self._filled = False
+        self._fill_color = (0, 0, 0, 0)
     def fill(self, color):
-        self._filled = True
+        # Normalise to 4-tuple (RGBA)
+        if len(color) == 3:
+            color = (*color, 255)
+        self._fill_color = tuple(color)
     def get_size(self):
         return self.size
+    def get_flags(self):
+        return self.flags
+    def get_at(self, pos):
+        c = self._fill_color
+        return _StubColor(c[0], c[1], c[2], c[3])
 
 _stub_pygame.Surface = _StubSurface
 

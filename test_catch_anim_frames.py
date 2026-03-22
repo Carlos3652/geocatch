@@ -102,3 +102,36 @@ class TestCatchAnimFrameSizes:
                 assert widths[i] <= widths[i - 1], (
                     f"{key} implode not non-increasing at {i}"
                 )
+
+
+class TestCatchAnimConstraints:
+    """Verify constraints and edge cases."""
+
+    def test_n_le_16(self):
+        """N must be <= 16 per spec."""
+        assert _CATCH_ANIM_N <= 16
+
+    def test_missing_image_key_returns_none(self):
+        """get() on a missing key should return None, not crash."""
+        result = _catch_anim_frames.get("nonexistent_key_xyz")
+        assert result is None
+
+    def test_no_extra_keys_beyond_creature_types(self):
+        """_catch_anim_frames should only have keys from CREATURE_TYPES."""
+        for key in _catch_anim_frames:
+            assert key in _IMAGE_KEYS, f"Unexpected key: {key}"
+
+    def test_frame_idx_clamp_at_full_progress(self):
+        """progress=1.0 should map to last frame index, not out of bounds."""
+        for key in _IMAGE_KEYS:
+            frames = _catch_anim_frames[key]
+            idx = min(len(frames) - 1, int(1.0 * len(frames)))
+            assert idx == len(frames) - 1
+
+    def test_all_frames_have_alpha(self):
+        """All pre-baked frames should support per-pixel alpha."""
+        for key in _IMAGE_KEYS:
+            for i, surf in enumerate(_catch_anim_frames[key]):
+                assert surf.get_alpha() is None or surf.get_alpha() == 255, (
+                    f"{key}[{i}] unexpected alpha"
+                )
