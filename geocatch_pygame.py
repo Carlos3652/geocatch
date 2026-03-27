@@ -5,6 +5,9 @@ import math
 import os
 import json
 import array as _array
+from pathlib import Path
+
+_HERE = Path(__file__).parent
 
 pygame.mixer.pre_init(44100, -16, 1, 512)
 pygame.init()
@@ -124,6 +127,11 @@ _go_flash_timer = 0.0
 _go_bubbles = []
 _go_fireworks = []  # firework particles for high score
 _go_caught_keys = set()  # image_keys of caught creatures this round
+# gc-high-03: Module-level score/time render caches (cleared in reset_game)
+_sc_cache = None  # (score_value, rendered_surface)
+_tm_cache = None  # ((time_left, is_urgent), rendered_surface)
+# gc-high-05: Module-level name entry text cache (cleared in reset_game)
+_name_entry_cache = None  # (name_text + cursor_char, rendered_surface)
 _go_submit_rect = pygame.Rect(0, 0, 0, 0)  # clickable submit button rect
 
 # ── Name Entry Card Layout Helpers ──────────────────────────────────────────
@@ -214,10 +222,11 @@ _spawn_delay_timer = 0.0
 _last_tick_second = -1
 
 # High scores — CRIT-03: hardened parser
+_HIGHSCORES_FILE = _HERE / "highscores.txt"
 high_scores = []
-if os.path.exists("highscores.txt"):
+if _HIGHSCORES_FILE.exists():
     try:
-        with open("highscores.txt") as f:
+        with open(_HIGHSCORES_FILE) as f:
             parsed = []
             for line in f:
                 line = line.strip()
@@ -231,9 +240,9 @@ if os.path.exists("highscores.txt"):
         high_scores = []
 
 # #14: Cumulative stats + #11: Per-trainer personal bests
-_stats_file = "stats.json"
+_stats_file = _HERE / "stats.json"
 _stats = {"total_catches": {}, "trainer_bests": {}}
-if os.path.exists(_stats_file):
+if _stats_file.exists():
     try:
         with open(_stats_file) as f:
             _stats = json.load(f)
@@ -250,7 +259,7 @@ def save_high_score(name, sc):
     high_scores.sort(key=lambda x: x[1], reverse=True)
     high_scores = high_scores[:5]
     try:
-        with open("highscores.txt", "w") as f:
+        with open(_HIGHSCORES_FILE, "w") as f:
             for n, s in high_scores:
                 f.write(f"{n} {s}\n")
     except OSError:
@@ -816,7 +825,8 @@ def reset_game():
     global _streak_flash_timer
     global _total_paused_ms, _pause_start_ms, _escalation_triggered, _bob_speed
     global _spawn_delay_timer, _last_tick_second
-    global _go_cache, _go_anim_done, _go_fireworks, _go_caught_keys, _cs_popup
+    global _go_cache, _go_anim_done, _go_anim_timer, _go_anim_score, _go_fireworks, _go_caught_keys, _cs_popup
+    global _sc_cache, _tm_cache, _name_entry_cache
     score = 0
     game_time = 60
     inventory = []
@@ -847,16 +857,17 @@ def reset_game():
     _last_tick_second = -1
     _go_cache = None
     _go_anim_done = False
+    _go_anim_timer = 0.0
+    _go_anim_score = 0
     _go_fireworks = []
     _go_caught_keys = set()
     _cs_popup = None
     _hud_catch_flash.clear()
     _hud_nearby_keys.clear()
-    # Clear cached score/time surfaces to prevent stale blits
-    if hasattr(reset_game, '_sc_cache'):
-        del reset_game._sc_cache
-    if hasattr(reset_game, '_tm_cache'):
-        del reset_game._tm_cache
+    # gc-high-03/05: Clear module-level render caches to prevent stale blits
+    _sc_cache = None
+    _tm_cache = None
+    _name_entry_cache = None
 
 
 # ── Card Spotlight start screen surfaces ──────────────────────────────────────
@@ -1560,7 +1571,11 @@ while running:
                 screen.blit(_go_placeholder, (_pill_x + 14, _pill_y + 13))
             else:
                 cursor = "" if len(name_input) >= 5 else ("|" if int(_ticks * 2) % 2 == 0 else " ")
-                _name_surf = small_font.render(f"{name_input}{cursor}", True, WHITE)
+                _cache_key = name_input + cursor
+                # gc-high-05: only re-render when text+cursor changes
+                if _name_entry_cache is None or _name_entry_cache[0] != _cache_key:
+                    _name_entry_cache = (_cache_key, small_font.render(_cache_key, True, WHITE))
+                _name_surf = _name_entry_cache[1]
                 screen.blit(_name_surf, (_pill_x + _pill_w // 2 - _name_surf.get_width() // 2, _pill_y + 9))
             # Submit button
             _btn_x, _btn_y, _btn_w, _btn_h = compute_submit_button(_card_x, _card_y, _card_w)
@@ -1769,13 +1784,13 @@ while running:
             ft["_surf"].set_alpha(int(ft["timer"] * 255))
             screen.blit(ft["_surf"], (int(ft["x"]) - ft["_w"] // 2, draw_y))
 
-        # Score pill (top-left) — cached render
+        # Score pill (top-left) — gc-high-03: module-level cache
         score_pill_rect = pygame.Rect(15, 12, 210, 44)
         pygame.draw.rect(screen, PANEL_BG, score_pill_rect, border_radius=22)
         pygame.draw.rect(screen, ACCENT,   score_pill_rect, width=2, border_radius=22)
-        if not hasattr(reset_game, '_sc_cache') or reset_game._sc_cache[0] != score:
-            reset_game._sc_cache = (score, font.render(f"Score: {score}", True, SCORE_GOLD))
-        screen.blit(reset_game._sc_cache[1], (score_pill_rect.x + 16, score_pill_rect.y + 6))
+        if _sc_cache is None or _sc_cache[0] != score:
+            _sc_cache = (score, font.render(f"Score: {score}", True, SCORE_GOLD))
+        screen.blit(_sc_cache[1], (score_pill_rect.x + 16, score_pill_rect.y + 6))
 
         # #3: Streak multiplier pill (below score) — HIGH-05: pre-baked surfaces
         if streak_multiplier > 1.0:
@@ -1803,9 +1818,9 @@ while running:
         timer_pill_rect = pygame.Rect(WIDTH - 195, 12, 180, 44)
         pygame.draw.rect(screen, (80, 20, 20) if is_urgent else PANEL_BG,  timer_pill_rect, border_radius=22)
         pygame.draw.rect(screen, URGENT_RED  if is_urgent else ACCENT,     timer_pill_rect, width=2, border_radius=22)
-        if not hasattr(reset_game, '_tm_cache') or reset_game._tm_cache[0] != (time_left, is_urgent):
-            reset_game._tm_cache = ((time_left, is_urgent), font.render(f"Time: {time_left}s", True, URGENT_RED if is_urgent else WHITE))
-        screen.blit(reset_game._tm_cache[1], (timer_pill_rect.x + 14, timer_pill_rect.y + 6))
+        if _tm_cache is None or _tm_cache[0] != (time_left, is_urgent):
+            _tm_cache = ((time_left, is_urgent), font.render(f"Time: {time_left}s", True, URGENT_RED if is_urgent else WHITE))
+        screen.blit(_tm_cache[1], (timer_pill_rect.x + 14, timer_pill_rect.y + 6))
 
     pygame.display.flip()
 
