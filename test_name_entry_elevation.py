@@ -1,65 +1,27 @@
-"""Tests for name entry elevation – card layout, shadow, input field, and submit button."""
+"""Tests for name entry elevation — card layout, shadow, input field, and submit button.
 
+gc-high-01: Tests import layout helpers directly from geocatch_pygame via headless
+SDL drivers, ensuring no pygame display is required and CI runs cleanly.
+"""
+import os
+import sys
 
-# ── Layout geometry helpers (extracted from geocatch_pygame.py game_over render) ──
+# Headless drivers BEFORE importing pygame / the game module
+os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
-WIDTH = 1000
-
-
-def compute_card_layout(cx=WIDTH // 2, stats_y=300):
-    """Compute the elevated name entry card geometry."""
-    bot_y = stats_y + 24
-    card_w = 320
-    card_h = 150
-    card_x = cx - card_w // 2
-    card_y = bot_y
-    return card_x, card_y, card_w, card_h
-
-
-def compute_shadow_rect(card_x, card_y, card_w, card_h, offset=4):
-    """Compute shadow position (offset down-right for depth)."""
-    return card_x + offset, card_y + offset, card_w, card_h
-
-
-def compute_input_field(card_x, card_y):
-    """Compute the prominent input field rect."""
-    pill_w, pill_h = 200, 42
-    pill_x = card_x + 16
-    pill_y = card_y + 66
-    return pill_x, pill_y, pill_w, pill_h
-
-
-def compute_submit_button(card_x, card_y, card_w):
-    """Compute the submit button rect."""
-    btn_w, btn_h = 80, 42
-    btn_x = card_x + card_w - btn_w - 16
-    btn_y = card_y + 66
-    return btn_x, btn_y, btn_w, btn_h
-
-
-def compute_leaderboard_rect(cx, card_y, card_h):
-    """Compute leaderboard position below the name entry card."""
-    lb_y = card_y + card_h + 12
-    lb_w = 280
-    lb_x = cx - lb_w // 2
-    return lb_x, lb_y, lb_w
-
-
-def get_input_border_color(name_input):
-    """Return border color depending on whether input has text."""
-    ACCENT = (255, 107, 53)
-    if len(name_input) > 0:
-        return ACCENT
-    return (80, 85, 110)
-
-
-def get_submit_button_state(name_input):
-    """Return (bg_color, is_active) for the submit button."""
-    ACCENT = (255, 107, 53)
-    active = len(name_input) > 0
-    bg = ACCENT if active else (50, 52, 70)
-    return bg, active
-
+sys.path.insert(0, os.path.dirname(__file__))
+from geocatch_pygame import (
+    compute_card_layout,
+    compute_shadow_rect,
+    compute_input_field,
+    compute_submit_button,
+    compute_leaderboard_rect,
+    get_input_border_color,
+    get_submit_button_state,
+    WIDTH,
+    ACCENT,
+)
 
 # ── Tests ──
 
@@ -132,7 +94,7 @@ class TestInputField:
     def test_input_border_accent_when_typing(self):
         """Border should be ACCENT orange when text is present."""
         color = get_input_border_color("ABC")
-        assert color == (255, 107, 53)
+        assert color == ACCENT
 
 
 class TestSubmitButton:
@@ -171,7 +133,7 @@ class TestSubmitButton:
         """Button should be ACCENT orange when name has text."""
         bg, active = get_submit_button_state("A")
         assert active
-        assert bg == (255, 107, 53)
+        assert bg == ACCENT
 
 
 class TestLeaderboardPosition:
