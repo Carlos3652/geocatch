@@ -822,6 +822,7 @@ def spawn_creatures(n=8):
             c["orbit_angle"] = random.uniform(0, 2 * math.pi)
             c["orbit_r"] = 30
             c["orbit_speed"] = 1.0
+            c["orbit_trail"] = []
         elif behavior == "blinker":
             c["blink_timer"] = random.uniform(2.0, 4.0)
         elif behavior == "drifter":
@@ -1202,6 +1203,11 @@ while running:
                 c["orbit_angle"] += c.get("orbit_speed", 1.0) * dt
                 c["x"] = c["orbit_cx"] + math.cos(c["orbit_angle"]) * c.get("orbit_r", 30)
                 c["y"] = c["orbit_cy"] + math.sin(c["orbit_angle"]) * c.get("orbit_r", 30)
+                trail = c.get("orbit_trail")
+                if trail is not None:
+                    trail.append((c["x"], c["y"]))
+                    if len(trail) > 10:
+                        trail.pop(0)
             elif beh == "blinker":
                 c["blink_timer"] -= dt
                 if c["blink_timer"] <= 0:
@@ -1704,6 +1710,16 @@ while running:
             c["_bob"] = bob
             _cx = int(c["x"]) + _shake_ox
             _cy = int(c["y"]) + _shake_oy
+            # gc-14: Pacer orbit trail
+            _trail = c.get("orbit_trail")
+            if _trail and len(_trail) > 1:
+                _tc = CREATURE_COLORS.get(c["type"]["name"], (200, 200, 200))
+                for _ti, (_tx, _ty) in enumerate(_trail):
+                    _ta = int(120 * (_ti + 1) / len(_trail))
+                    _tr = max(2, int(5 * (_ti + 1) / len(_trail)))
+                    _dot = pygame.Surface((_tr * 2 + 2, _tr * 2 + 2), pygame.SRCALPHA)
+                    pygame.draw.circle(_dot, (*_tc, _ta), (_tr + 1, _tr + 1), _tr)
+                    screen.blit(_dot, (int(_tx) + _shake_ox - _tr - 1, int(_ty) + _shake_oy - _tr - 1))
             screen.blit(_shad_creature, (_cx - 25, _cy + 24))
             screen.blit(_type_circles[c["type"]["name"]], (_cx - 28, _cy + 14))
             if c["type"]["name"] == "Shadow Phantom":
@@ -1876,6 +1892,29 @@ while running:
             _wc_scale = 1.0 + 0.5 * (1.0 - _wave_clear_timer / 1.5)
             _wave_clear_surf.set_alpha(max(0, _wc_alpha))
             screen.blit(_wave_clear_surf, (WIDTH // 2 - _wave_clear_surf.get_width() // 2, HEIGHT // 2 - 30))
+
+        # gc-15: Minimap (top-right corner)
+        _mm_size = 100
+        _mm_x = WIDTH - _mm_size - 10
+        _mm_y = 10
+        _mm_surf = pygame.Surface((_mm_size, _mm_size), pygame.SRCALPHA)
+        pygame.draw.rect(_mm_surf, (15, 18, 30, 160), (0, 0, _mm_size, _mm_size), border_radius=6)
+        pygame.draw.rect(_mm_surf, (60, 65, 90, 140), (0, 0, _mm_size, _mm_size), width=1, border_radius=6)
+        # Scale factor: map world to minimap
+        _mm_sx = _mm_size / WIDTH
+        _mm_sy = _mm_size / HEIGHT
+        # Draw creatures as colored dots
+        for _mc in creatures:
+            _mcx = int(_mc["x"] * _mm_sx)
+            _mcy = int(_mc["y"] * _mm_sy)
+            _mcc = CREATURE_COLORS.get(_mc["type"]["name"], (200, 200, 200))
+            pygame.draw.circle(_mm_surf, (*_mcc, 180), (_mcx, _mcy), 2)
+        # Draw player as white dot
+        _mpx = int(player_x * _mm_sx)
+        _mpy = int(player_y * _mm_sy)
+        pygame.draw.circle(_mm_surf, (255, 255, 255, 240), (_mpx, _mpy), 3)
+        pygame.draw.circle(_mm_surf, ACCENT, (_mpx, _mpy), 5, 1)
+        screen.blit(_mm_surf, (_mm_x, _mm_y))
 
         # HUD creature icon row (below score/streak pills)
         _caught_set = set(inventory)
