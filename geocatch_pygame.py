@@ -638,6 +638,17 @@ _pause_hint_esc = small_font.render("Press ESC to resume", True, (200, 200, 210)
 _pause_hint_q = small_font.render("Press Q to quit to menu", True, (200, 200, 210))
 _pause_blur_cache = None  # cached blurred screenshot
 
+# gc-08: Zero score tip
+_zero_tip_surf = small_font.render("Press SPACE near creatures to catch them!", True, (180, 220, 180))
+_zero_tip_shown = True  # visible until first catch
+
+# gc-12: Escalation tint overlay
+_escalation_tint = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+
+# gc-13: Wave clear flash
+_wave_clear_timer = 0.0
+_wave_clear_surf = font.render("Wave Clear!", True, (255, 230, 100))
+
 creatures = []
 rocks = [(200, 200), (700, 150), (300, 500), (800, 400), (150, 550), (650, 550)]
 bombs = [(450, 250), (550, 450), (250, 350), (750, 300)]
@@ -825,7 +836,7 @@ def reset_game():
     global catch_streak, streak_multiplier, catch_animations, catch_particles, shake_frames, shake_magnitude
     global _streak_flash_timer
     global _total_paused_ms, _pause_start_ms, _escalation_triggered, _bob_speed
-    global _spawn_delay_timer, _last_tick_second
+    global _spawn_delay_timer, _last_tick_second, _zero_tip_shown, _wave_clear_timer
     global _go_cache, _go_anim_done, _go_anim_timer, _go_anim_score, _go_fireworks, _go_caught_keys, _cs_popup
     global _sc_cache, _tm_cache, _name_entry_cache
     score = 0
@@ -856,6 +867,8 @@ def reset_game():
     _bob_speed = 2.0
     _spawn_delay_timer = 0.0
     _last_tick_second = -1
+    _zero_tip_shown = True
+    _wave_clear_timer = 0.0
     _go_cache = None
     _go_anim_done = False
     _go_anim_timer = 0.0
@@ -1058,6 +1071,9 @@ while running:
                             pts = int(base_pts * streak_multiplier)
                             score += pts
                             inventory.append(caught["name"])
+                            if _zero_tip_shown:
+                                global _zero_tip_shown
+                                _zero_tip_shown = False
                             float_texts.append(_make_float_text(f"+{pts}", c["x"], c["y"], SCORE_GOLD))
                             # #14: Update cumulative stats
                             _stats["total_catches"][caught["name"]] = _stats["total_catches"].get(caught["name"], 0) + 1
@@ -1246,6 +1262,9 @@ while running:
 
         # #13: Spawn delay after wave clear
         if len(creatures) == 0:
+            if _spawn_delay_timer == 0.0 and score > 0:
+                global _wave_clear_timer
+                _wave_clear_timer = 1.5  # flash duration
             _spawn_delay_timer += dt
             if _spawn_delay_timer >= 0.8:
                 _spawn_delay_timer = 0.0
@@ -1818,6 +1837,26 @@ while running:
             _sp = _streak_pills.get(streak_multiplier)
             if _sp:
                 screen.blit(_sp, (15, 60))
+
+        # gc-08: Zero score tip
+        if _zero_tip_shown and score == 0:
+            _tip_alpha = min(200, int(200 * (1.0 if elapsed < 2.0 else max(0, 3.0 - elapsed))))
+            _zero_tip_surf.set_alpha(_tip_alpha)
+            screen.blit(_zero_tip_surf, (WIDTH // 2 - _zero_tip_surf.get_width() // 2, HEIGHT - 50))
+
+        # gc-12: Escalation tint
+        if _escalation_triggered:
+            _esc_alpha = min(40, int(40 * min(1.0, (15 - time_left) / 10.0))) if time_left < 15 else 0
+            _escalation_tint.fill((180, 30, 10, _esc_alpha))
+            screen.blit(_escalation_tint, (0, 0))
+
+        # gc-13: Wave clear flash
+        if _wave_clear_timer > 0:
+            _wave_clear_timer -= dt
+            _wc_alpha = int(255 * (_wave_clear_timer / 1.5))
+            _wc_scale = 1.0 + 0.5 * (1.0 - _wave_clear_timer / 1.5)
+            _wave_clear_surf.set_alpha(max(0, _wc_alpha))
+            screen.blit(_wave_clear_surf, (WIDTH // 2 - _wave_clear_surf.get_width() // 2, HEIGHT // 2 - 30))
 
         # HUD creature icon row (below score/streak pills)
         _caught_set = set(inventory)
