@@ -632,10 +632,11 @@ _go_enter_click_hint = tiny_font.render("ENTER or click SUBMIT", True, (140, 200
 
 # Pre-allocated pause overlay surfaces (#10)
 _pause_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-_pause_overlay.fill((0, 0, 0, 160))
+_pause_overlay.fill((0, 0, 0, 120))
 _pause_title = font.render("PAUSED", True, WHITE)
-_pause_hint_esc = small_font.render("Press ESC to resume", True, (200, 200, 200))
-_pause_hint_q = small_font.render("Press Q to quit to menu", True, (200, 200, 200))
+_pause_hint_esc = small_font.render("Press ESC to resume", True, (200, 200, 210))
+_pause_hint_q = small_font.render("Press Q to quit to menu", True, (200, 200, 210))
+_pause_blur_cache = None  # cached blurred screenshot
 
 creatures = []
 rocks = [(200, 200), (700, 150), (300, 500), (800, 400), (150, 550), (650, 550)]
@@ -1026,6 +1027,10 @@ while running:
                 if event.key == pygame.K_ESCAPE:
                     _pause_start_ms = pygame.time.get_ticks()
                     _pause_screenshot.blit(screen, (0, 0))
+                    # Fake blur: downscale then upscale
+                    global _pause_blur_cache
+                    _small = pygame.transform.smoothscale(_pause_screenshot, (WIDTH // 6, HEIGHT // 6))
+                    _pause_blur_cache = pygame.transform.smoothscale(_small, (WIDTH, HEIGHT))
                     game_state = "paused"
                 elif event.key == pygame.K_SPACE:
                     for i in range(len(creatures) - 1, -1, -1):
@@ -1611,11 +1616,27 @@ while running:
 
     # #10: Pause screen
     elif game_state == "paused":
-        screen.blit(_pause_screenshot, (0, 0))
+        # Frosted background
+        if _pause_blur_cache:
+            screen.blit(_pause_blur_cache, (0, 0))
+        else:
+            screen.blit(_pause_screenshot, (0, 0))
         screen.blit(_pause_overlay, (0, 0))
-        screen.blit(_pause_title, (WIDTH // 2 - _pause_title.get_width() // 2, HEIGHT // 2 - 60))
-        screen.blit(_pause_hint_esc, (WIDTH // 2 - _pause_hint_esc.get_width() // 2, HEIGHT // 2))
-        screen.blit(_pause_hint_q, (WIDTH // 2 - _pause_hint_q.get_width() // 2, HEIGHT // 2 + 30))
+        # Frosted card
+        _pc_w, _pc_h = 280, 160
+        _pc_x = WIDTH // 2 - _pc_w // 2
+        _pc_y = HEIGHT // 2 - _pc_h // 2
+        # Card shadow
+        pygame.draw.rect(screen, (5, 5, 15), (_pc_x + 3, _pc_y + 3, _pc_w, _pc_h), border_radius=14)
+        # Card background (semi-transparent via SRCALPHA surface)
+        _card_surf = pygame.Surface((_pc_w, _pc_h), pygame.SRCALPHA)
+        pygame.draw.rect(_card_surf, (25, 28, 50, 200), (0, 0, _pc_w, _pc_h), border_radius=14)
+        pygame.draw.rect(_card_surf, (80, 85, 120, 120), (0, 0, _pc_w, _pc_h), width=1, border_radius=14)
+        screen.blit(_card_surf, (_pc_x, _pc_y))
+        # Card content
+        screen.blit(_pause_title, (_pc_x + _pc_w // 2 - _pause_title.get_width() // 2, _pc_y + 20))
+        screen.blit(_pause_hint_esc, (_pc_x + _pc_w // 2 - _pause_hint_esc.get_width() // 2, _pc_y + 80))
+        screen.blit(_pause_hint_q, (_pc_x + _pc_w // 2 - _pause_hint_q.get_width() // 2, _pc_y + 110))
 
     else:  # playing
         # #8: Screen shake offset
