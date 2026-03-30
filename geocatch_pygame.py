@@ -814,6 +814,7 @@ def spawn_creatures(n=8):
             "phase": random.uniform(0, 2 * math.pi),
             "behavior": behavior,
             "spawn_alpha": 0.0,   # #9: fade-in from 0
+            "hint_timer": 2.0,    # gc-09: behaviour hint visible for 2s
         }
         if behavior == "pacer":
             c["orbit_cx"] = px
@@ -1622,8 +1623,14 @@ while running:
         if _go_cache:
             screen.blit(_go_cache["lb_title"], (_lb_x + _lb_w // 2 - _go_cache["lb_title"].get_width() // 2, _lb_y + 8))
             if _go_cache["lb_lines"]:
+                _medal_colors = [(255, 215, 0), (192, 192, 200), (180, 120, 60)]
                 for i, _line in enumerate(_go_cache["lb_lines"]):
-                    screen.blit(_line, (_lb_x + 20, _lb_y + 30 + i * 26))
+                    _row_y = _lb_y + 30 + i * 26
+                    if i < 3:
+                        pygame.draw.circle(screen, _medal_colors[i], (_lb_x + 12, _row_y + 8), 7)
+                        _rank_s = tiny_font.render(str(i + 1), True, (30, 30, 40))
+                        screen.blit(_rank_s, (_lb_x + 12 - _rank_s.get_width() // 2, _row_y + 2))
+                    screen.blit(_line, (_lb_x + 24, _row_y))
             else:
                 screen.blit(_go_no_scores, (_lb_x + _lb_w // 2 - _go_no_scores.get_width() // 2, _lb_y + 60))
 
@@ -1723,6 +1730,18 @@ while running:
                     screen.blit(_stk, (_cx - _STICKER_SIZE // 2, _cy - _STICKER_SIZE // 2 + bob))
             else:
                 pygame.draw.circle(screen, WHITE, (_cx, _cy + bob), 25)
+
+            # gc-09: Behaviour hint label (fades over 2s)
+            _ht = c.get("hint_timer", 0)
+            if _ht > 0:
+                c["hint_timer"] = _ht - dt
+                _hint_names = {"pacer": "orbiter", "blinker": "blinker", "static": "calm", "drifter": "drifter", "fader": "shy"}
+                _hname = _hint_names.get(c.get("behavior", ""), "")
+                if _hname and _ht > 0.5:
+                    _ha = min(180, int(180 * ((_ht - 0.5) / 1.5)))
+                    _hs = tiny_font.render(_hname, True, (200, 200, 220))
+                    _hs.set_alpha(_ha)
+                    screen.blit(_hs, (_cx - _hs.get_width() // 2, _cy - _STICKER_SIZE // 2 - 12 + bob))
 
         # #6: Draw catch pop animations (expand-implode with pre-baked frames)
         for ca in catch_animations:
